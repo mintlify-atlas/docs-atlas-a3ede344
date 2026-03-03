@@ -1,0 +1,138 @@
+---
+title: Aphrodite
+description: UpCloud-hosted server running most tgirl.cloud services with Nginx and Attic cache
+---
+
+## Overview
+
+Aphrodite is a headless server hosted on UpCloud that powers most of the tgirl.cloud infrastructure. This system provides web services, binary caching, and content delivery for the community.
+
+<Note>
+  Named after the Greek goddess of love and beauty, Aphrodite serves the community by hosting public services and infrastructure.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="Hosting" icon="cloud">
+    UpCloud virtual private server
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    Ext4 root filesystem with swap
+  </Card>
+  <Card title="Domain" icon="globe">
+    tgirl.cloud
+  </Card>
+  <Card title="Web Server" icon="server">
+    Nginx reverse proxy
+  </Card>
+</CardGroup>
+
+## Hardware configuration
+
+As a cloud-hosted VPS, Aphrodite uses a simple Ext4 filesystem:
+
+```nix
+fileSystems."/" = {
+  device = "/dev/disk/by-uuid/ecbc167c-3bfe-4801-90c1-51c272d316c6";
+  fsType = "ext4";
+};
+
+swapDevices = [
+  { device = "/dev/disk/by-uuid/a04ef6f2-82fe-4a8c-9273-fb80e7383dfa"; }
+];
+```
+
+Reference: `systems/aphrodite/hardware.nix:2-10`
+
+<Info>
+  The Ext4 filesystem provides reliable performance for server workloads with minimal overhead.
+</Info>
+
+## Enabled profiles
+
+Aphrodite is configured as a cloud-hosted headless server:
+
+```nix
+profiles = {
+  headless.enable = true;
+  server.enable = true;
+  upcloud.enable = true;
+};
+```
+
+Reference: `systems/aphrodite/default.nix:5-9`
+
+- **Headless**: No graphical interface, terminal-only access
+- **Server**: Server-optimized kernel and system settings
+- **UpCloud**: Cloud provider-specific optimizations and networking
+
+## Services
+
+### Web infrastructure
+
+Nginx serves as the primary web server and reverse proxy:
+
+```nix
+services = {
+  nginx = {
+    enable = true;
+    domain = "tgirl.cloud";
+  };
+  attic.enable = true;
+};
+```
+
+Reference: `systems/aphrodite/default.nix:11-18`
+
+<CardGroup cols={2}>
+  <Card title="Nginx" icon="server">
+    Reverse proxy and web server for tgirl.cloud domain
+  </Card>
+  <Card title="Attic" icon="box">
+    Binary cache server for Nix packages and build artifacts
+  </Card>
+</CardGroup>
+
+### Attic binary cache
+
+<Info>
+  Attic provides a distributed binary cache for Nix packages, significantly speeding up builds by sharing compiled artifacts across the infrastructure.
+</Info>
+
+The Attic service allows you to:
+- Cache build outputs to avoid redundant compilation
+- Share packages across multiple NixOS systems
+- Reduce build times for the entire infrastructure
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="Community infrastructure">
+    Aphrodite hosts public-facing services for the tgirl.cloud community, making it a critical piece of shared infrastructure.
+  </Accordion>
+  
+  <Accordion title="Cloud-native design">
+    Built specifically for UpCloud's platform with optimizations for virtual environments and cloud networking.
+  </Accordion>
+  
+  <Accordion title="Binary caching">
+    The Attic cache dramatically improves build times across all systems by sharing compiled Nix packages.
+  </Accordion>
+  
+  <Accordion title="Minimal footprint">
+    As a focused server without graphical components, Aphrodite maintains a small resource footprint while delivering essential services.
+  </Accordion>
+</AccordionGroup>
+
+## Deployment considerations
+
+<Warning>
+  When modifying Aphrodite's configuration, remember that changes affect public-facing services. Always test configuration changes before deploying to production.
+</Warning>
+
+Since this system hosts community services:
+- Plan maintenance windows for service disruptions
+- Monitor Nginx logs for traffic patterns and errors
+- Keep the Attic cache synchronized with other infrastructure
+- Ensure the tgirl.cloud domain DNS records are properly configured

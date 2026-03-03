@@ -1,0 +1,278 @@
+---
+title: NixOS modules
+description: System-level configuration for Linux systems running NixOS
+---
+
+NixOS modules configure your Linux system at the operating system level. They manage everything from bootloaders and kernel settings to networking, security, and system services.
+
+## What NixOS modules provide
+
+These modules control system-wide settings that require root access and affect all users on the machine. They're organized into logical categories that mirror how you think about system administration.
+
+<CardGroup cols={2}>
+  <Card title="Boot & kernel" icon="power-off">
+    Bootloader configuration, kernel modules, and secure boot
+  </Card>
+  <Card title="Hardware support" icon="microchip">
+    CPU, GPU, Bluetooth, and cloud provider configurations
+  </Card>
+  <Card title="Networking" icon="network-wired">
+    Firewall, SSH, VPN, and network management
+  </Card>
+  <Card title="Services" icon="server">
+    Web servers, databases, media servers, and more
+  </Card>
+</CardGroup>
+
+## Module categories
+
+### boot/
+
+Bootloader and early boot configuration.
+
+<Accordion title="Available modules">
+  - `generic.nix` - Common boot settings
+  - `loader.nix` - Bootloader configuration (systemd-boot, GRUB)
+  - `secure-boot.nix` - Secure Boot with lanzaboote
+
+  **Example: Enable Secure Boot**
+  ```nix
+  {
+    garden.system.boot.secureBoot = true;
+  }
+  ```
+
+  This automatically:
+  - Installs `sbctl` for key management
+  - Configures lanzaboote as the bootloader
+  - Sets up the PKI bundle location
+  - Disables systemd-boot (replaced by lanzaboote)
+</Accordion>
+
+### hardware/
+
+Hardware detection and driver configuration.
+
+<Accordion title="Available modules">
+  - `bluetooth.nix` - Bluetooth support with blueman
+  - `cpu/` - CPU-specific optimizations (AMD, Intel)
+  - `cloud/` - Cloud provider configurations (Hetzner, Oracle, UpCloud)
+
+  **Example: Enable Bluetooth**
+  ```nix
+  {
+    garden.system.bluetooth.enable = true;
+  }
+  ```
+
+  This configures:
+  - Bluetooth kernel modules (btusb)
+  - BlueZ Bluetooth stack
+  - Blueman GUI manager
+  - Optimized settings for device pairing
+</Accordion>
+
+### networking/
+
+Network configuration, firewall, VPN, and remote access.
+
+<Accordion title="Available modules">
+  - `blocker.nix` - Ad/tracker blocking
+  - `fail2ban.nix` - Intrusion prevention
+  - `firewall.nix` - Firewall configuration
+  - `networkmanager.nix` - NetworkManager setup
+  - `openssh.nix` - SSH server configuration
+  - `optimise.nix` - Network performance tuning
+  - `systemd.nix` - Systemd-networkd configuration
+  - `tailscale.nix` - Tailscale VPN mesh network
+  - `tcpcrypt.nix` - TCP encryption
+  - `vpn.nix` - VPN client configuration
+  - `wireless.nix` - WiFi configuration
+
+  **Example: Secure SSH server**
+  ```nix
+  {
+    garden.networking.openssh = {
+      enable = true;
+      passwordAuth = false;
+      rootLogin = false;
+    };
+  }
+  ```
+</Accordion>
+
+### services/
+
+System services including web servers, databases, and applications.
+
+<Accordion title="Available services">
+  **Web & Application Servers:**
+  - `nginx.nix` - Web server and reverse proxy
+  - `forgejo.nix` - Git hosting (GitHub alternative)
+  - `immich.nix` - Photo and video management
+  - `jellyfin.nix` - Media server
+  - `vaultwarden.nix` - Password manager
+  - `uptime-kuma.nix` - Status monitoring
+
+  **Infrastructure:**
+  - `postgresql.nix` - PostgreSQL database
+  - `redis.nix` - In-memory data store
+  - `attic.nix` - Nix binary cache
+  - `buildbot.nix` - CI/CD automation
+
+  **Media & Downloads:**
+  - `sonarr.nix`, `radarr.nix`, `prowlarr.nix` - Media automation
+  - `qbittorent.nix` - Torrent client
+
+  **Social & Communication:**
+  - `matrix.nix` - Matrix homeserver
+  - `akkoma/` - Fediverse server
+  - `pds/` - AT Protocol server (Bluesky)
+
+  **Other:**
+  - `kanidm.nix` - Identity management
+  - `mailserver.nix` - Email server
+  - `cloudflared.nix` - Cloudflare tunnel
+  - `borgbackup.nix` - Backup system
+</Accordion>
+
+### environment/
+
+System-wide environment configuration.
+
+<Accordion title="Available modules">
+  - `console.nix` - TTY console settings
+  - `documentation.nix` - Man pages and docs
+  - `fonts.nix` - System fonts
+  - `locale.nix` - Language and timezone
+  - `packages.nix` - System-wide packages
+  - `paths.nix` - PATH and environment setup
+  - `wayland.nix` - Wayland compositor support
+  - `xdg.nix` - XDG base directory spec
+  - `zram.nix` - Compressed RAM swap
+</Accordion>
+
+### security/
+
+Security hardening and access control.
+
+<Accordion title="Available modules">
+  System security configuration including polkit rules, sudo settings, and security policies.
+</Accordion>
+
+### programs/
+
+System-wide program configuration.
+
+<Accordion title="Available modules">
+  - `cosmic.nix` - COSMIC desktop environment
+  - `graphical.nix` - GUI application support
+  - `hyprland.nix` - Hyprland Wayland compositor
+
+  **Example: Enable Hyprland**
+  ```nix
+  {
+    garden.programs.hyprland.enable = true;
+  }
+  ```
+</Accordion>
+
+### kernel/
+
+Linux kernel configuration and modules.
+
+<Accordion title="Available modules">
+  Kernel module management, custom kernel builds, and kernel parameter configuration.
+</Accordion>
+
+### users/
+
+User account management.
+
+<Accordion title="Available modules">
+  User creation, group membership, and SSH key configuration for system users.
+</Accordion>
+
+### system/
+
+Core system settings.
+
+<Accordion title="Available modules">
+  System state version, hostname, and other fundamental system configuration.
+</Accordion>
+
+## Top-level modules
+
+These modules live directly in the `nixos/` directory:
+
+- `catppuccin.nix` - Catppuccin theme integration
+- `emulation.nix` - Windows/other OS emulation support
+- `extras.nix` - External module imports
+- `headless.nix` - Headless server configuration
+- `nix.nix` - Nix daemon and build settings
+- `secrets.nix` - System-level secrets management
+
+## Usage example
+
+Here's how you might configure a typical NixOS workstation:
+
+```nix configuration.nix
+{
+  # Import the framework
+  imports = [ inputs.garden.nixosModules.default ];
+
+  # Boot configuration
+  garden.system.boot = {
+    secureBoot = true;
+    loader = "systemd-boot";
+  };
+
+  # Hardware support
+  garden.system.bluetooth.enable = true;
+  garden.hardware.cpu.manufacturer = "intel";
+
+  # Networking
+  garden.networking = {
+    networkmanager.enable = true;
+    openssh.enable = true;
+    firewall.enable = true;
+  };
+
+  # Desktop environment
+  garden.programs.hyprland.enable = true;
+
+  # System packages
+  garden.packages = with pkgs; {
+    inherit git vim curl;
+  };
+}
+```
+
+## Key features
+
+### Modular organization
+
+Modules are organized by function, making it easy to find and configure what you need. Each module is self-contained with its own options and defaults.
+
+### Declarative configuration
+
+All system configuration is declared in Nix files. No manual editing of config files or running imperative commands.
+
+### Hardware abstraction
+
+The framework automatically detects and configures hardware, with specific optimizations for different CPU vendors, cloud providers, and device types.
+
+### Security by default
+
+Sensible security defaults are applied throughout, with options to enable additional hardening like Secure Boot, fail2ban, and restricted SSH access.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Home Manager modules" href="/reference/modules/home" icon="home">
+    Per-user configuration and dotfiles
+  </Card>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    Shared configuration between NixOS and Darwin
+  </Card>
+</CardGroup>

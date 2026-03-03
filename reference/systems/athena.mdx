@@ -1,0 +1,191 @@
+---
+title: Athena
+description: The oldest laptop in the fleet, configured as a hybrid system though barely in use
+---
+
+## Overview
+
+Athena is Isabel's oldest laptop, representing a hybrid configuration that combines laptop, server, and headless profiles. While the flake still maintains support for this system, it sees minimal active use today.
+
+<Note>
+  Named after the Greek goddess of wisdom, Athena was once a workhorse but now serves primarily as a backup system and testing ground.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="CPU" icon="microchip">
+    Intel processor with integrated graphics
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    Btrfs root with separate media partition
+  </Card>
+  <Card title="Type" icon="laptop">
+    Hybrid laptop/server configuration
+  </Card>
+  <Card title="Security" icon="shield">
+    TPM 2.0 and Bluetooth support
+  </Card>
+</CardGroup>
+
+## Hardware configuration
+
+Athena uses a multi-partition setup optimized for media storage:
+
+```nix
+fileSystems = {
+  "/" = {
+    device = "/dev/disk/by-uuid/2cdcddcf-db9e-472f-ab4f-14e7b644beea";
+    fsType = "btrfs";
+  };
+
+  "/boot" = {
+    device = "/dev/disk/by-uuid/2524-71ED";
+    fsType = "vfat";
+  };
+
+  "/media" = {
+    device = "/dev/disk/by-uuid/c4f7c302-f492-47dd-8bfd-e3073c1923bd";
+    fsType = "ext4";
+  };
+};
+```
+
+Reference: `systems/athena/hardware.nix:2-17`
+
+<Info>
+  The dedicated `/media` partition on Ext4 provides a stable location for large media files separate from the system root.
+</Info>
+
+## Device configuration
+
+Athena is configured with Intel integrated graphics and a single display:
+
+```nix
+device = {
+  cpu = "intel";
+  gpu = "intel";
+  monitors.eDP-1 = { };
+  keyboard = "us";
+  capabilities = {
+    tpm = true;
+    bluetooth = true;
+  };
+};
+```
+
+Reference: `systems/athena/default.nix:12-21`
+
+## Enabled profiles
+
+The hybrid nature of Athena is reflected in its profile combination:
+
+```nix
+profiles = {
+  server.enable = true;
+  laptop.enable = true;
+  headless.enable = true;
+};
+```
+
+Reference: `systems/athena/default.nix:6-10`
+
+<CardGroup cols={3}>
+  <Card title="Server" icon="server">
+    Server-optimized settings for running services
+  </Card>
+  <Card title="Laptop" icon="laptop">
+    Power management and mobile hardware support
+  </Card>
+  <Card title="Headless" icon="terminal">
+    Can run without graphical interface
+  </Card>
+</CardGroup>
+
+## Boot configuration
+
+The system uses systemd-boot without secure boot enabled:
+
+```nix
+system.boot = {
+  loader = "systemd-boot";
+  secureBoot = false;
+  loadRecommendedModules = true;
+  enableKernelTweaks = true;
+  initrd.enableTweaks = true;
+};
+```
+
+Reference: `systems/athena/default.nix:23-29`
+
+<Warning>
+  Secure boot is disabled on this system, which may be appropriate for older hardware but reduces boot-time security guarantees.
+</Warning>
+
+## Services
+
+Despite being barely used, Athena hosts several services including media management and backups:
+
+```nix
+services = {
+  cloudflared.enable = true;
+  immich.enable = true;
+  arr.enable = true;
+  borgbackup.enable = true;
+};
+```
+
+Reference: `systems/athena/default.nix:31-36`
+
+<CardGroup cols={2}>
+  <Card title="Cloudflared" icon="cloud">
+    Cloudflare tunnel for secure remote access
+  </Card>
+  <Card title="Immich" icon="images">
+    Photo and video management platform
+  </Card>
+  <Card title="Arr Stack" icon="download">
+    Media automation tools (Sonarr, Radarr, etc.)
+  </Card>
+  <Card title="BorgBackup" icon="database">
+    Deduplicating backup solution
+  </Card>
+</CardGroup>
+
+### Smart monitoring disabled
+
+Due to hardware limitations or age, SMART disk monitoring is explicitly disabled:
+
+```nix
+services.smartd.enable = lib.mkForce false;
+```
+
+Reference: `systems/athena/default.nix:39`
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="Hybrid architecture">
+    Athena uniquely combines server, laptop, and headless profiles, making it adaptable to different use cases despite its age.
+  </Accordion>
+  
+  <Accordion title="Media-focused storage">
+    The dedicated `/media` partition and Immich service show this laptop was repurposed for media management and storage.
+  </Accordion>
+  
+  <Accordion title="Legacy hardware support">
+    As the oldest system, Athena demonstrates how the flake maintains backward compatibility with older hardware.
+  </Accordion>
+  
+  <Accordion title="Backup repository">
+    With BorgBackup enabled, this system likely serves as a backup target for other machines in the infrastructure.
+  </Accordion>
+  
+  <Accordion title="Testing ground">
+    Being barely used in production, Athena is perfect for testing configuration changes before deploying to critical systems.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  While Athena sees minimal use, keeping it in the flake ensures you can quickly bring it online for testing, backups, or emergency scenarios.
+</Tip>

@@ -1,0 +1,138 @@
+---
+title: Welcome to Isabel's Dotfiles
+description: A modular NixOS configuration framework with sensible defaults and Catppuccin theming
+---
+
+Isabel's Dotfiles is a comprehensive, modular NixOS configuration framework that brings declarative system management to NixOS, macOS (via nix-darwin), and WSL environments. Built with flexibility and reproducibility in mind, it provides sensible defaults while remaining highly customizable.
+
+<Note>
+  This is a **personal** configuration framework. While you can use it as inspiration or a starting point, some components are tailored to specific needs and won't work out of the box without modification.
+</Note>
+
+## Key features
+
+This configuration framework provides a robust foundation for managing your systems:
+
+- **Modular architecture** - Add or remove components based on your needs using the `garden` module system
+- **Cross-platform support** - Works on NixOS, macOS (via nix-darwin), and WSL
+- **Sensible defaults** - Get started quickly with pre-configured profiles for workstations, laptops, and servers
+- **Catppuccin theming** - Consistent, beautiful theming across all applications
+- **Flake-based** - Modern Nix flakes for reproducible builds and easy dependency management
+- **Home Manager integration** - Declarative user environment configuration
+- **Security-focused** - Built-in support for secure boot (lanzaboote), SOPS secrets management, and TPM
+
+## Architecture overview
+
+The configuration is organized into several key areas:
+
+<CardGroup cols={2}>
+  <Card title="Profiles" icon="sliders" href="/reference/modules/generic">
+    Pre-configured system profiles like graphical, workstation, laptop, and server that bundle common settings
+  </Card>
+  
+  <Card title="Modules" icon="puzzle-piece" href="/architecture/modules">
+    Granular configuration modules for hardware, software, services, and theming organized by category
+  </Card>
+  
+  <Card title="Hosts" icon="server" href="/architecture/systems">
+    Individual system configurations for each machine, from desktop workstations to ARM servers
+  </Card>
+  
+  <Card title="Secrets" icon="key" href="/guides/secrets-management">
+    Encrypted secrets management using SOPS for secure credential storage
+  </Card>
+</CardGroup>
+
+## The `garden` module system
+
+At the heart of this configuration is the `garden` namespace, which provides a consistent interface for configuring all aspects of your system:
+
+```nix
+garden = {
+  profiles = {
+    graphical.enable = true;
+    workstation.enable = true;
+    laptop.enable = true;
+  };
+  
+  device = {
+    cpu = "intel";
+    gpu = "nvidia";
+    monitors = {
+      DP-1.refresh-rate = 144;
+      DP-2 = { };
+    };
+    capabilities = {
+      bluetooth = true;
+      yubikey = true;
+    };
+  };
+  
+  system = {
+    boot.loader = "systemd-boot";
+    bluetooth.enable = true;
+    printing.enable = false;
+  };
+};
+```
+
+This approach keeps configuration clean, discoverable, and modular.
+
+## Supported platforms
+
+<CardGroup cols={3}>
+  <Card title="NixOS" icon="linux">
+    Full-featured NixOS configurations with hardware support, display managers, and system services
+  </Card>
+  
+  <Card title="macOS" icon="apple">
+    macOS configurations using nix-darwin with Homebrew integration for GUI apps
+  </Card>
+  
+  <Card title="WSL" icon="windows">
+    Windows Subsystem for Linux configurations with NixOS-WSL integration
+  </Card>
+</CardGroup>
+
+## What's included
+
+The framework includes configurations for:
+
+- **Window managers**: Hyprland with full compositor configuration
+- **Development tools**: Neovim (izvim), Git, shells (fish, nushell), and language toolchains
+- **Applications**: Browser extensions, media players, file managers, and productivity tools
+- **Services**: SSH, GPG, backup systems, and custom systemd services
+- **Hardware**: Multi-monitor setups, GPU drivers, Bluetooth, printing, and more
+- **Theming**: Catppuccin color scheme applied consistently across all applications
+
+<Warning>
+  The configuration includes encrypted secrets that are specific to the original systems. You'll need to replace these with your own secrets to use this configuration.
+</Warning>
+
+## Example hosts
+
+The repository includes several reference configurations:
+
+- **amaterasu** - Intel/NVIDIA desktop workstation with dual monitors at 144Hz
+- **tatsumaki** - ARM-based macOS laptop (Apple Silicon)
+- **valkyrie** - WSL development environment
+- **skadi** - ARM-based NixOS server
+- **lilith** - Custom NixOS ISO installer with the `iznix-install` installation script
+
+## Getting started
+
+Ready to dive in? The quickstart guide will walk you through installing NixOS and deploying your first configuration.
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Get up and running with a working NixOS, macOS, or WSL installation
+</Card>
+
+## Community and support
+
+This is a personal configuration repository, but contributions and questions are welcome:
+
+- **Source code**: [github.com/isabelroses/dotfiles](https://github.com/isabelroses/dotfiles)
+- **License**: EUPL-1.2
+- **Documentation**: You're reading it!
+
+Feel free to use this as inspiration for your own NixOS configuration journey.

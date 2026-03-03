@@ -1,0 +1,314 @@
+---
+title: Adding systems
+description: Configure new NixOS, macOS, WSL, or ISO systems in your dotfiles flake
+---
+
+Systems are configured in the `/systems/<hostname>` directory. Each system requires a declaration in `/systems/default.nix` using the `easy-hosts` flake module.
+
+## System configuration structure
+
+Each system follows this structure:
+
+```
+systems/
+└── yoursystem/
+    ├── default.nix      # Main system configuration
+    ├── hardware.nix     # Hardware-specific settings
+    └── users.nix        # User declarations
+```
+
+## Creating a new system
+
+<Steps>
+  <Step title="Create the system directory">
+    Create a new directory for your system:
+
+    ```bash
+    mkdir -p systems/yoursystem
+    ```
+  </Step>
+
+  <Step title="Add the system configuration">
+    Create `systems/yoursystem/default.nix` with your system settings:
+
+    ```nix systems/yoursystem/default.nix
+    {
+      imports = [
+        ./hardware.nix
+        ./users.nix
+      ];
+
+      garden = {
+        profiles = {
+          workstation.enable = true;
+          graphical.enable = true;
+        };
+
+        device = {
+          cpu = "amd"; # or "intel"
+          gpu = "amd"; # or "nvidia", "intel", null
+        };
+      };
+    }
+    ```
+
+    <Accordion title="Available profiles">
+      - `workstation.enable` - Development tools and utilities
+      - `graphical.enable` - GUI applications and desktop environment
+      - `server.enable` - Server-optimized settings
+      - `headless.enable` - No graphical interface
+    </Accordion>
+  </Step>
+
+  <Step title="Configure hardware">
+    Create `systems/yoursystem/hardware.nix` for hardware-specific configuration:
+
+    ```nix systems/yoursystem/hardware.nix
+    { modulesPath, ... }:
+    {
+      imports = [
+        (modulesPath + "/installer/scan/not-detected.nix")
+      ];
+
+      boot.initrd.availableKernelModules = [ "xhci_pci" "nvme" "usb_storage" "sd_mod" ];
+      boot.kernelModules = [ "kvm-amd" ]; # or "kvm-intel"
+
+      fileSystems."/" = {
+        device = "/dev/disk/by-uuid/your-uuid-here";
+        fsType = "ext4";
+      };
+
+      fileSystems."/boot" = {
+        device = "/dev/disk/by-uuid/your-boot-uuid-here";
+        fsType = "vfat";
+      };
+    }
+    ```
+
+    <Tip>
+      Generate hardware configuration with `nixos-generate-config` and copy the relevant parts.
+    </Tip>
+  </Step>
+
+  <Step title="Add users">
+    Create `systems/yoursystem/users.nix` to declare system users:
+
+    ```nix systems/yoursystem/users.nix
+    {
+      garden.system = {
+        mainUser = "yourname";
+        users = [ "yourname" ];
+      };
+
+      # Optional: Add user-specific home-manager configuration
+      home-manager.users.yourname.garden = {
+        profiles = {
+          git.enable = true;
+          shell.enable = true;
+        };
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Register in systems/default.nix">
+    Add your system to the hosts configuration:
+
+    ```nix systems/default.nix
+    { self, inputs, ... }:
+    {
+      config.easy-hosts = {
+        hosts = {
+          yoursystem = {
+            arch = "x86_64";  # or "aarch64"
+            class = "nixos";  # or "darwin", "iso", "wsl"
+            # Optional:
+            # modules = [ ./extra-module.nix ];
+            # specialArgs = { someArg = "value"; };
+          };
+        };
+      };
+    }
+    ```
+  </Step>
+</Steps>
+
+## Configuration options
+
+When declaring a system in `systems/default.nix`, you can set these options:
+
+### arch
+
+- **Default**: `"x86_64"`
+- **Options**: `"x86_64"`, `"aarch64"`
+
+The CPU architecture of your system.
+
+### class
+
+- **Default**: `"nixos"`  
+- **Options**: `"nixos"`, `"darwin"`, `"iso"`, `"wsl"`
+
+The type of system you're configuring:
+
+<Accordion title="System classes">
+  - **nixos** - Standard NixOS installation
+  - **darwin** - macOS with nix-darwin
+  - **iso** - Live installation media
+  - **wsl** - Windows Subsystem for Linux
+</Accordion>
+
+### modules
+
+- **Default**: `[]`
+
+Additional NixOS/nix-darwin modules to include:
+
+```nix
+modules = [
+  ./custom-module.nix
+  inputs.some-flake.nixosModules.default
+];
+```
+
+### specialArgs
+
+- **Default**: `{}`
+
+Extra arguments passed to all modules:
+
+```nix
+specialArgs = {
+  inherit inputs;
+  myVar = "custom-value";
+};
+```
+
+## Example configurations
+
+<CodeGroup>
+```nix NixOS workstation
+# systems/myworkstation/default.nix
+{
+  imports = [
+    ./hardware.nix
+    ./users.nix
+  ];
+
+  garden = {
+    profiles = {
+      workstation.enable = true;
+      graphical.enable = true;
+    };
+
+    device = {
+      cpu = "amd";
+      gpu = "amd";
+    };
+  };
+}
+```
+
+```nix macOS system
+# systems/mymac/default.nix
+{
+  imports = [
+    ./users.nix
+  ];
+
+  garden.profiles = {
+    workstation.enable = true;
+    graphical.enable = true;
+  };
+}
+
+# systems/default.nix
+hosts = {
+  mymac = {
+    arch = "aarch64";
+    class = "darwin";
+  };
+};
+```
+
+```nix Server configuration
+# systems/myserver/default.nix
+{
+  imports = [
+    ./hardware.nix
+    ./users.nix
+  ];
+
+  garden = {
+    profiles = {
+      headless.enable = true;
+      server.enable = true;
+    };
+
+    device = {
+      cpu = "amd";
+      gpu = null;
+    };
+
+    services = {
+      nginx.enable = true;
+      postgresql.enable = true;
+    };
+  };
+}
+```
+</CodeGroup>
+
+## Building and deploying
+
+After configuring your system, you can build and deploy it:
+
+<Tabs>
+  <Tab title="NixOS">
+    ```bash
+    # Build the system
+    sudo nixos-rebuild switch --flake .#yoursystem
+
+    # Or build without activating
+    nixos-rebuild build --flake .#yoursystem
+    ```
+  </Tab>
+  <Tab title="macOS">
+    ```bash
+    # Using the just command
+    just provision yoursystem
+
+    # Or directly
+    darwin-rebuild switch --flake .#yoursystem
+    ```
+  </Tab>
+  <Tab title="ISO">
+    ```bash
+    # Build the ISO image
+    nix build .#images.yoursystem
+
+    # Result will be in ./result/iso/
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Consult the [easy-hosts documentation](https://github.com/tgirlcloud/easy-hosts) for advanced configuration options and features.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Add users" icon="user" href="/guides/adding-users">
+    Configure user accounts for your system
+  </Card>
+  <Card title="Add packages" icon="box" href="/guides/adding-packages">
+    Install and configure packages
+  </Card>
+  <Card title="Secrets management" icon="key" href="/guides/secrets-management">
+    Set up encrypted secrets with sops-nix
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Fix common issues
+  </Card>
+</CardGroup>

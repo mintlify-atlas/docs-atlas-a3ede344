@@ -1,0 +1,203 @@
+---
+title: Skadi
+description: Oracle Cloud free-tier server for PDS hosting and aarch64 builds
+---
+
+## Overview
+
+Skadi is a server running on Oracle Cloud's free tier, primarily used for hosting a Personal Data Server (PDS) and providing aarch64 build capabilities. This system demonstrates efficient use of free cloud resources for specialized workloads.
+
+<Note>
+  Named after the Norse goddess associated with winter and mountains, Skadi operates efficiently in the Oracle Cloud environment.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="Hosting" icon="cloud">
+    Oracle Cloud Infrastructure (free tier)
+  </Card>
+  <Card title="Architecture" icon="microchip">
+    ARM64 (aarch64)
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    Ext4 root filesystem
+  </Card>
+  <Card title="Boot" icon="power-off">
+    systemd-boot loader
+  </Card>
+</CardGroup>
+
+## Hardware configuration
+
+Skadi uses a minimal Ext4 filesystem configuration:
+
+```nix
+fileSystems = {
+  "/" = {
+    device = "/dev/disk/by-uuid/3ac0d35f-0807-4553-a17e-24b227f1a3b1";
+    fsType = "ext4";
+  };
+
+  "/boot" = {
+    device = "/dev/disk/by-uuid/ED86-8CB2";
+    fsType = "vfat";
+    options = [
+      "fmask=0022"
+      "dmask=0022"
+    ];
+  };
+};
+```
+
+Reference: `systems/skadi/hardware.nix:2-16`
+
+<Info>
+  The simple two-partition layout (root and boot) minimizes complexity and overhead for this cloud-based ARM instance.
+</Info>
+
+## Enabled profiles
+
+Skadi is configured as a headless server with Oracle-specific optimizations:
+
+```nix
+profiles = {
+  headless.enable = true;
+  server.enable = true;
+  oracle.enable = true;
+};
+```
+
+Reference: `systems/skadi/default.nix:5-9`
+
+- **Headless**: No graphical interface
+- **Server**: Server-optimized settings
+- **Oracle**: Oracle Cloud Infrastructure optimizations
+
+## Device configuration
+
+```nix
+device = {
+  cpu = null;
+  gpu = null;
+};
+```
+
+Reference: `systems/skadi/default.nix:11-14`
+
+As an ARM cloud instance, Skadi doesn't specify CPU or GPU types, relying on the Oracle profile for hardware detection.
+
+## Boot configuration
+
+```nix
+system = {
+  boot.loader = "systemd-boot";
+};
+```
+
+Reference: `systems/skadi/default.nix:16-18`
+
+<Card title="systemd-boot" icon="power-off">
+  Using systemd-boot for simple, reliable booting in the cloud environment
+</Card>
+
+## Services
+
+Skadi runs a focused set of services optimized for its use case:
+
+```nix
+services = {
+  nginx.enable = true;
+  uptime-kuma.enable = true;
+  pds.enable = true;
+};
+```
+
+Reference: `systems/skadi/default.nix:20-24`
+
+<CardGroup cols={3}>
+  <Card title="Nginx" icon="server">
+    Web server and reverse proxy
+  </Card>
+  <Card title="Uptime Kuma" icon="heartbeat">
+    Self-hosted monitoring and status page
+  </Card>
+  <Card title="PDS" icon="database">
+    Personal Data Server for AT Protocol (Bluesky)
+  </Card>
+</CardGroup>
+
+### Personal Data Server (PDS)
+
+<Info>
+  The PDS service provides a self-hosted Personal Data Server for the AT Protocol, giving you full control over your Bluesky/ATProto data and identity.
+</Info>
+
+Running a PDS allows you to:
+- Host your own AT Protocol identity
+- Control your data storage and access
+- Participate in the decentralized Bluesky network
+- Run custom feed generators and other ATProto services
+
+### Uptime Kuma monitoring
+
+Uptime Kuma provides:
+- Real-time service monitoring
+- Status page generation
+- Downtime notifications
+- Response time tracking
+
+<Tip>
+  Use Uptime Kuma to monitor not just Skadi's services, but also endpoints on other systems in your infrastructure.
+</Tip>
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="Free tier optimization">
+    Skadi demonstrates how to maximize Oracle Cloud's generous free tier, providing valuable services without cost.
+  </Accordion>
+  
+  <Accordion title="ARM64 builds">
+    As an aarch64 system, Skadi enables native ARM builds for NixOS packages, supporting the growing ARM ecosystem.
+  </Accordion>
+  
+  <Accordion title="AT Protocol hosting">
+    Running a Personal Data Server makes Skadi part of the decentralized social web, providing independence from centralized platforms.
+  </Accordion>
+  
+  <Accordion title="Infrastructure monitoring">
+    Uptime Kuma on Skadi can monitor the entire infrastructure, providing a bird's-eye view of service health.
+  </Accordion>
+  
+  <Accordion title="Minimal footprint">
+    With just three services and a simple configuration, Skadi shows how effective a focused, purpose-built server can be.
+  </Accordion>
+</AccordionGroup>
+
+## Oracle Cloud free tier
+
+<Card title="Always Free Resources" icon="gift">
+  Oracle Cloud's free tier includes ARM-based compute instances with generous resource allocations, perfect for hosting lightweight services like PDS and monitoring tools.
+</Card>
+
+### Benefits of Oracle's free tier
+
+- ARM-based Ampere A1 compute instances
+- Up to 4 OCPUs and 24 GB RAM (total across instances)
+- 200 GB block storage
+- 10 TB outbound data transfer per month
+- Always free (not a trial)
+
+<Warning>
+  While Oracle's free tier is generous, ensure you stay within the free tier limits to avoid unexpected charges. Monitor your resource usage regularly.
+</Warning>
+
+## Use cases
+
+Skadi is ideal for:
+
+1. **Decentralized identity**: Self-hosting your Bluesky/ATProto presence
+2. **Cross-architecture builds**: Building ARM packages for NixOS
+3. **Monitoring**: Central monitoring point for distributed infrastructure
+4. **Experimentation**: Testing configurations without using primary infrastructure

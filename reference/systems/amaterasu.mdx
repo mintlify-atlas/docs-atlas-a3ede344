@@ -1,0 +1,178 @@
+---
+title: Amaterasu
+description: A powerful desktop system dual booting Windows 11 with NVIDIA graphics and Intel CPU
+---
+
+## Overview
+
+Amaterasu is Isabel's primary desktop workstation, configured for high-performance computing with dual-boot support for Windows 11. This system features NVIDIA graphics acceleration, secure boot capabilities, and a dual-monitor setup optimized for productivity and content creation.
+
+<Note>
+  Named after the Japanese sun goddess, Amaterasu serves as the main powerhouse for development, media creation, and streaming workflows.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="CPU" icon="microchip">
+    Intel processor with kernel tweaks enabled
+  </Card>
+  <Card title="GPU" icon="display">
+    NVIDIA graphics card with proprietary drivers
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    Btrfs root filesystem with separate boot partition
+  </Card>
+  <Card title="Security" icon="shield">
+    TPM 2.0, Secure Boot, and YubiKey support
+  </Card>
+</CardGroup>
+
+## Hardware configuration
+
+The system uses a Btrfs root filesystem for advanced features like snapshots and compression, along with a dedicated swap partition:
+
+```nix
+fileSystems = {
+  "/" = {
+    device = "/dev/disk/by-uuid/3a898325-08a7-4f9f-ab19-380765bcaf92";
+    fsType = "btrfs";
+  };
+
+  "/boot" = {
+    device = "/dev/disk/by-uuid/36A9-4288";
+    fsType = "vfat";
+    options = [
+      "fmask=0022"
+      "dmask=0022"
+    ];
+  };
+};
+```
+
+Reference: `systems/amaterasu/hardware.nix:2-16`
+
+## Display configuration
+
+Amaterasu supports a dual-monitor setup with high refresh rate support:
+
+```nix
+device = {
+  cpu = "intel";
+  gpu = "nvidia";
+  monitors = {
+    DP-1.refresh-rate = 144;
+    DP-2 = { };
+  };
+  capabilities = {
+    tpm = true;
+    bluetooth = true;
+    yubikey = true;
+  };
+  keyboard = "us";
+};
+```
+
+Reference: `systems/amaterasu/default.nix:13-26`
+
+<Info>
+  The primary display (DP-1) runs at 144Hz for smooth gaming and content creation workflows.
+</Info>
+
+## Enabled profiles
+
+Amaterasu uses a combination of profiles to create a full-featured workstation:
+
+- **Graphical**: Full desktop environment with window manager support
+- **Workstation**: Development tools and productivity applications
+
+```nix
+profiles = {
+  graphical.enable = true;
+  workstation.enable = true;
+};
+```
+
+Reference: `systems/amaterasu/default.nix:8-11`
+
+## Boot configuration
+
+The system uses systemd-boot with secure boot and multiple optimizations:
+
+```nix
+boot = {
+  loader = "systemd-boot";
+  secureBoot = true;
+  enableKernelTweaks = true;
+  loadRecommendedModules = true;
+
+  initrd = {
+    enableTweaks = true;
+    optimizeCompressor = true;
+  };
+};
+```
+
+Reference: `systems/amaterasu/default.nix:31-41`
+
+<Card title="Security features" icon="lock">
+  Secure Boot is enabled with TPM 2.0 support, providing hardware-backed security and measured boot capabilities.
+</Card>
+
+## User configuration
+
+Isabel's user environment on Amaterasu includes comprehensive media creation and streaming tools:
+
+```nix
+home-manager.users.isabel = {
+  programs = {
+    discord.enable = true;
+    ghostty.enable = true;
+    chromium.enable = true;
+    obs-studio.enable = true;
+    fish.enable = true;
+    hyprland.enable = true;
+    quickshell.enable = true;
+  };
+
+  garden.profiles.media = {
+    creation.enable = true;
+    streaming.enable = true;
+  };
+};
+```
+
+Reference: `systems/amaterasu/users.nix:2-17`
+
+## Enabled services
+
+<CardGroup cols={2}>
+  <Card title="Bluetooth" icon="bluetooth">
+    Wireless device connectivity
+  </Card>
+  <Card title="Emulation" icon="gamepad">
+    Virtual machine and emulation support
+  </Card>
+</CardGroup>
+
+Printing is explicitly disabled on this system to reduce attack surface and unnecessary services.
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="Dual-boot configuration">
+    Amaterasu maintains a dual-boot setup with Windows 11, allowing you to switch between NixOS and Windows for specific workflows or gaming that requires Windows.
+  </Accordion>
+  
+  <Accordion title="NVIDIA optimization">
+    As one of the few systems with NVIDIA graphics, this configuration includes proprietary driver support and GPU-accelerated workflows for rendering and streaming.
+  </Accordion>
+  
+  <Accordion title="High refresh rate displays">
+    The 144Hz primary monitor configuration provides a smooth experience for both development and content creation.
+  </Accordion>
+  
+  <Accordion title="Media creation suite">
+    With OBS Studio, Hyprland, and streaming profiles enabled, this system is optimized for live streaming and video production.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,295 @@
+---
+title: Install on NixOS
+description: Install Isabel's Dotfiles on a NixOS system with step-by-step instructions
+---
+
+This guide walks you through installing Isabel's Dotfiles on a fresh or existing NixOS system. You can either use the custom Lilith ISO image or perform a manual installation.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- A working NixOS installation (or plan to install one)
+- Internet connection
+- Basic familiarity with the command line
+- At least 20GB of free disk space
+
+<Note>
+This configuration is **personal** and not everything will work out of the box. You'll need to customize it for your needs and handle encrypted secrets.
+</Note>
+
+## Installation methods
+
+You can install this configuration using one of two methods:
+
+### Method 1: Using the Lilith ISO (Recommended)
+
+The Lilith ISO is a custom NixOS installation image that includes helpful utilities and the dotfiles repository pre-configured.
+
+<Steps>
+  <Step title="Download the ISO">
+    You can either build the ISO yourself or download it from the releases page:
+
+    **Option A: Download pre-built ISO**
+    ```bash
+    # Download from GitHub releases
+    wget https://github.com/isabelroses/dotfiles/releases/latest/download/lilith-*.iso
+    ```
+
+    **Option B: Build it yourself**
+    ```bash
+    # Clone the repository
+    git clone https://github.com/isabelroses/dotfiles.git
+    cd dotfiles
+
+    # Build the ISO
+    nix build .#images.lilith
+    ```
+
+    The ISO will be available in `./result/iso/`.
+  </Step>
+
+  <Step title="Create a bootable USB">
+    Write the ISO to a USB drive:
+
+    ```bash
+    # Replace /dev/sdX with your USB device
+    sudo dd if=lilith-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+    ```
+
+    <Warning>
+    Double-check your device path! The `dd` command will overwrite the entire drive.
+    </Warning>
+  </Step>
+
+  <Step title="Boot from USB">
+    1. Insert the USB drive into your target machine
+    2. Boot from the USB drive (you may need to change boot order in BIOS/UEFI)
+    3. Select the appropriate boot option from the menu
+  </Step>
+
+  <Step title="Run the installation script">
+    Once booted into the Lilith ISO, you can use the `iznix-install` script:
+
+    ```bash
+    iznix-install
+    ```
+
+    Follow the prompts to complete the installation.
+  </Step>
+</Steps>
+
+### Method 2: Manual installation
+
+If you already have NixOS installed or prefer a manual approach:
+
+<Steps>
+  <Step title="Install NixOS">
+    If you don't have NixOS installed yet, follow the [official NixOS installation manual](https://nixos.org/manual/nixos/stable/index.html#sec-installation).
+  </Step>
+
+  <Step title="Clone the repository">
+    Clone the dotfiles repository to `~/.config/flake`:
+
+    ```bash
+    git clone https://github.com/isabelroses/dotfiles.git ~/.config/flake
+    cd ~/.config/flake
+    ```
+  </Step>
+
+  <Step title="Choose your host configuration">
+    Review the available host configurations:
+
+    ```bash
+    ls systems/
+    ```
+
+    Available hosts include:
+    - `amaterasu` - Workstation with Intel CPU and NVIDIA GPU
+    - `minerva` - Headless server
+    - `aphrodite`, `athena`, `hephaestus`, `isis` - Various server configurations
+    - `skadi` - ARM64 system
+
+    You can either use an existing configuration or create your own by copying one of the examples.
+  </Step>
+
+  <Step title="Customize your configuration">
+    Create or modify a host configuration for your system:
+
+    ```bash
+    # Copy an existing configuration
+    cp -r systems/amaterasu systems/yourhostname
+    
+    # Edit the configuration
+    $EDITOR systems/yourhostname/default.nix
+    ```
+
+    Update the hardware configuration:
+
+    ```bash
+    # Generate hardware configuration
+    nixos-generate-config --show-hardware-config > systems/yourhostname/hardware.nix
+    ```
+  </Step>
+
+  <Step title="Update the host registry">
+    Add your host to `systems/default.nix`:
+
+    ```nix
+    hosts = {
+      # ... existing hosts ...
+      
+      yourhostname = { };
+    };
+    ```
+  </Step>
+
+  <Step title="Build and switch">
+    Apply the configuration:
+
+    ```bash
+    sudo nixos-rebuild switch --flake ~/.config/flake#yourhostname
+    ```
+
+    <Note>
+    The first build may take a while as it downloads and builds all packages.
+    </Note>
+  </Step>
+</Steps>
+
+## Post-installation
+
+After the installation completes, you'll need to perform some manual steps:
+
+### Set up authentication
+
+```bash
+# Login to Atuin (shell history sync)
+atuin login
+
+# Login to GitHub CLI
+gh auth login
+```
+
+### Install user scripts
+
+If you want to use the custom user scripts:
+
+```bash
+git clone git@github.com:isabel/skid.git ~/.local/bin
+```
+
+### Using justfile commands
+
+The repository includes a `justfile` with helpful commands:
+
+```bash
+# List available commands
+just
+
+# Switch to a new configuration
+just switch
+
+# Test configuration without switching
+just test
+
+# Update flake inputs
+just update
+
+# Check flake for errors
+just check
+```
+
+## Available host examples
+
+### Workstation configuration (amaterasu)
+
+```nix
+garden = {
+  profiles = {
+    graphical.enable = true;
+    workstation.enable = true;
+  };
+
+  device = {
+    cpu = "intel";
+    gpu = "nvidia";
+    monitors = {
+      DP-1.refresh-rate = 144;
+      DP-2 = { };
+    };
+    capabilities = {
+      tpm = true;
+      bluetooth = true;
+      yubikey = true;
+    };
+  };
+
+  system = {
+    boot = {
+      loader = "systemd-boot";
+      secureBoot = true;
+      enableKernelTweaks = true;
+    };
+  };
+};
+```
+
+### Server configuration (minerva)
+
+```nix
+garden = {
+  profiles = {
+    headless.enable = true;
+    server.enable = true;
+  };
+
+  services = {
+    nginx.enable = true;
+    postgresql.enable = true;
+    atuin.enable = true;
+    forgejo.enable = true;
+  };
+};
+```
+
+## Troubleshooting
+
+### Build fails with "evaluation aborted"
+
+Ensure you have experimental features enabled:
+
+```bash
+mkdir -p ~/.config/nix
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
+### Secrets-related errors
+
+The repository uses encrypted secrets. You'll need to:
+
+1. Remove or replace all secret references in your configuration
+2. Set up your own secrets using [sops-nix](https://github.com/Mic92/sops-nix)
+
+### System won't boot after installation
+
+Boot into the Lilith ISO or a NixOS rescue system and:
+
+```bash
+# Mount your system
+mount /dev/sdaX /mnt
+
+# Roll back to previous generation
+nixos-rebuild --rollback switch --flake /mnt/etc/nixos#yourhostname
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Dual boot setup" icon="laptop" href="/installation/dual-boot">
+    Configure dual boot with Windows
+  </Card>
+  <Card title="Configuration guide" icon="gear" href="/configuration/overview">
+    Learn how to customize your setup
+  </Card>
+</CardGroup>

@@ -1,0 +1,184 @@
+---
+title: Tatsumaki
+description: MacBook Air provided by university, running nix-darwin for macOS configuration
+---
+
+## Overview
+
+Tatsumaki is a MacBook Air provided by university, configured using nix-darwin for declarative macOS management. This system is almost exclusively used at university for coursework and academic activities.
+
+<Note>
+  Named after the S-Class hero from One Punch Man, Tatsumaki brings the power of Nix configuration management to the macOS ecosystem.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="Type" icon="laptop">
+    MacBook Air
+  </Card>
+  <Card title="OS" icon="apple">
+    macOS (managed with nix-darwin)
+  </Card>
+  <Card title="Purpose" icon="graduation-cap">
+    University coursework and academic use
+  </Card>
+  <Card title="Management" icon="code">
+    Declarative configuration via nix-darwin
+  </Card>
+</CardGroup>
+
+## Configuration approach
+
+Unlike the NixOS systems in the fleet, Tatsumaki uses nix-darwin to bring declarative configuration management to macOS:
+
+```nix
+garden = {
+  profiles = {
+    laptop.enable = true;
+    graphical.enable = true;
+    workstation.enable = true;
+  };
+};
+```
+
+Reference: `systems/tatsumaki/default.nix:4-10`
+
+<Info>
+  nix-darwin allows you to manage macOS configuration declaratively, similar to NixOS, but working within the constraints of Apple's operating system.
+</Info>
+
+## Enabled profiles
+
+<CardGroup cols={3}>
+  <Card title="Laptop" icon="laptop">
+    Power management and mobile-optimized settings
+  </Card>
+  <Card title="Graphical" icon="desktop">
+    Full desktop environment and applications
+  </Card>
+  <Card title="Workstation" icon="briefcase">
+    Development tools and productivity apps
+  </Card>
+</CardGroup>
+
+These profiles provide:
+- Battery optimization for mobile use
+- Full graphical application support
+- Development environment for coursework
+- Productivity tools for academic work
+
+## User configuration
+
+Isabel's user environment on Tatsumaki includes essential applications for university work:
+
+```nix
+home-manager.users.isabel = {
+  programs = {
+    discord.enable = true;
+    fish.enable = true;
+    zsh.enable = true;
+    ghostty.enable = true;
+  };
+
+  garden.profiles.media.watching.enable = true;
+};
+```
+
+Reference: `systems/tatsumaki/users.nix:2-11`
+
+### Installed applications
+
+<CardGroup cols={2}>
+  <Card title="Discord" icon="discord">
+    Communication for study groups and university communities
+  </Card>
+  <Card title="Fish Shell" icon="terminal">
+    User-friendly interactive shell
+  </Card>
+  <Card title="Zsh" icon="terminal">
+    Alternative shell with extensive plugin support
+  </Card>
+  <Card title="Ghostty" icon="window">
+    Modern GPU-accelerated terminal emulator
+  </Card>
+</CardGroup>
+
+### Media profile
+
+The media watching profile enables:
+- Video playback applications
+- Streaming service support
+- Media player configurations
+
+<Tip>
+  Having both Fish and Zsh enabled allows you to switch between shells depending on the task or environment requirements.
+</Tip>
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="macOS integration">
+    Tatsumaki is the only macOS system in the fleet, demonstrating how the configuration framework extends beyond NixOS to support nix-darwin.
+  </Accordion>
+  
+  <Accordion title="University-focused">
+    Purpose-built for academic use, this system's configuration emphasizes productivity and collaboration tools needed for coursework.
+  </Accordion>
+  
+  <Accordion title="Institutional hardware">
+    As university-provided hardware, Tatsumaki shows how to integrate institutional devices into a personal infrastructure.
+  </Accordion>
+  
+  <Accordion title="Dual shell support">
+    With both Fish and Zsh configured, you can leverage the strengths of each shell for different tasks and environments.
+  </Accordion>
+  
+  <Accordion title="Minimal service footprint">
+    Unlike the servers, Tatsumaki focuses purely on user applications without running background services, keeping it lightweight for mobile use.
+  </Accordion>
+</AccordionGroup>
+
+## nix-darwin benefits
+
+<Card title="Declarative macOS" icon="apple">
+  nix-darwin brings NixOS-style declarative configuration to macOS, allowing you to manage system settings, applications, and user environments reproducibly.
+</Card>
+
+Advantages of using nix-darwin:
+
+- **Reproducibility**: Configuration can be versioned and shared
+- **Rollbacks**: Easy system rollback if changes cause issues
+- **Home Manager integration**: Consistent user environment across systems
+- **Package management**: Access to nixpkgs on macOS
+- **Consistency**: Similar configuration approach to NixOS systems
+
+## Academic use considerations
+
+<Info>
+  When using university-provided hardware, be mindful of institutional policies regarding system modifications and software installation.
+</Info>
+
+### Best practices
+
+1. **Backup regularly**: University systems may need to be wiped or returned
+2. **Separate personal and academic**: Keep coursework and personal projects organized
+3. **Network compliance**: Ensure configurations comply with university network policies
+4. **Software licensing**: Use appropriately licensed software for academic work
+
+<Warning>
+  Since this is university-provided hardware, avoid storing sensitive personal data or running services that might conflict with institutional policies.
+</Warning>
+
+## Workflow integration
+
+Tatsumaki integrates into the broader infrastructure:
+
+- **Shell history sync**: Could integrate with Atuin (hosted on Minerva)
+- **Git configuration**: Consistent across all systems via home-manager
+- **SSH access**: Can connect to other systems in the fleet
+- **Shared Nix cache**: Can leverage Attic cache from Aphrodite
+
+<Tip>
+  Use the shared configuration framework to maintain consistency between Tatsumaki and your other systems, making context switching seamless.
+</Tip>

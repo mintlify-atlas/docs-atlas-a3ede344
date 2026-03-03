@@ -1,0 +1,398 @@
+---
+title: Dual boot with Windows
+description: Set up NixOS dual boot with Windows and configure secure boot using Lanzaboote
+---
+
+This guide covers setting up a dual boot system with NixOS and Windows, including secure boot configuration to ensure compatibility with games and applications that require it (like Valorant).
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- A computer with UEFI firmware (not legacy BIOS)
+- Windows already installed (or space to install it)
+- At least 50GB of free disk space for NixOS
+- A USB drive for the NixOS installer (8GB or larger)
+- Backup of important data
+
+<Warning>
+Dual booting involves partitioning your disk. Always backup your data before proceeding. Incorrect partitioning can lead to data loss.
+</Warning>
+
+## Installation order
+
+<Note>
+It's recommended to install Windows first, then NixOS. Windows tends to overwrite bootloaders, so installing it last can cause issues.
+</Note>
+
+## Prepare your system
+
+<Steps>
+  <Step title="Disable Fast Startup in Windows">
+    Fast Startup can cause issues with dual booting:
+
+    1. Open Control Panel → Power Options
+    2. Click "Choose what the power buttons do"
+    3. Click "Change settings that are currently unavailable"
+    4. Uncheck "Turn on fast startup"
+    5. Save changes
+  </Step>
+
+  <Step title="Shrink Windows partition">
+    Create space for NixOS:
+
+    1. Press Win+X and select "Disk Management"
+    2. Right-click your C: drive
+    3. Select "Shrink Volume"
+    4. Enter the amount to shrink (at least 50000 MB for a comfortable installation)
+    5. Click "Shrink"
+
+    Leave the space as "Unallocated" - the NixOS installer will use it.
+  </Step>
+
+  <Step title="Disable Secure Boot temporarily">
+    You'll re-enable it later with proper keys:
+
+    1. Restart and enter UEFI/BIOS (usually F2, F10, F12, or Del during boot)
+    2. Find the Secure Boot option (usually under Security or Boot)
+    3. Disable Secure Boot
+    4. Save and exit
+  </Step>
+</Steps>
+
+## Install NixOS
+
+Follow the [NixOS installation guide](/installation/nixos) to install NixOS in the unallocated space. During installation:
+
+- Use the existing EFI partition (created by Windows)
+- Don't format the EFI partition
+- Create your Linux partitions in the unallocated space
+
+## Configure secure boot
+
+After NixOS is installed and working, configure secure boot using Lanzaboote:
+
+<Steps>
+  <Step title="Enable secure boot in your configuration">
+    Edit your host configuration:
+
+    ```nix
+    garden = {
+      system = {
+        boot = {
+          loader = "systemd-boot";
+          secureBoot = true;  # Enable secure boot
+          enableKernelTweaks = true;
+          loadRecommendedModules = true;
+        };
+      };
+    };
+    ```
+
+    This enables the Lanzaboote module which handles secure boot.
+  </Step>
+
+  <Step title="Rebuild without secure boot active">
+    Apply the configuration while secure boot is still disabled:
+
+    ```bash
+    sudo nixos-rebuild switch --flake ~/.config/flake#yourhostname
+    ```
+
+    This installs the necessary packages (`sbctl`) and configures Lanzaboote.
+  </Step>
+
+  <Step title="Create and enroll secure boot keys">
+    Generate and enroll your secure boot keys:
+
+    ```bash
+    # Create secure boot keys
+    sudo sbctl create-keys
+
+    # Enroll the keys (including Microsoft keys for Windows compatibility)
+    sudo sbctl enroll-keys --microsoft
+    ```
+
+    The `--microsoft` flag ensures Windows will still boot.
+  </Step>
+
+  <Step title="Sign bootloader and kernel">
+    Verify that your bootloader and kernel are signed:
+
+    ```bash
+    # Check what needs to be signed
+    sudo sbctl verify
+    ```
+
+    Lanzaboote should automatically sign the necessary files. If anything is unsigned:
+
+    ```bash
+    # Rebuild to sign everything
+    sudo nixos-rebuild switch --flake ~/.config/flake#yourhostname
+
+    # Verify again
+    sudo sbctl verify
+    ```
+  </Step>
+
+  <Step title="Enable secure boot in firmware">
+    1. Restart and enter UEFI/BIOS
+    2. Enable Secure Boot
+    3. Set it to "Setup Mode" if available
+    4. Save and exit
+
+    Your system should now boot with secure boot enabled.
+  </Step>
+</Steps>
+
+## Mount Windows EFI partition
+
+To ensure the Windows bootloader is accessible from NixOS:
+
+<Steps>
+  <Step title="Locate the Windows EFI partition">
+    Find the EFI partition device:
+
+    ```bash
+    lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT
+    ```
+
+    Look for a small partition (usually 100-500MB) with FSTYPE "vfat".
+  </Step>
+
+  <Step title="Mount the Windows EFI partition">
+    Create a temporary mount point:
+
+    ```bash
+    sudo mkdir /mnt/winboot
+    sudo mount /dev/nvme0n1p1 /mnt/winboot  # Replace with your EFI partition
+    ```
+
+    Replace `/dev/nvme0n1p1` with your actual EFI partition device.
+  </Step>
+
+  <Step title="Copy Windows EFI files">
+    Copy the Windows bootloader to your NixOS EFI partition:
+
+    ```bash
+    sudo rsync -av /mnt/winboot/EFI/Microsoft/ /boot/EFI/Microsoft/
+    ```
+
+    This ensures both bootloaders are available.
+  </Step>
+
+  <Step title="Clean up">
+    Unmount and remove the temporary mount point:
+
+    ```bash
+    sudo umount /mnt/winboot
+    sudo rmdir /mnt/winboot
+    ```
+  </Step>
+</Steps>
+
+## Verify dual boot
+
+<Steps>
+  <Step title="Check boot entries">
+    List available boot entries:
+
+    ```bash
+    efibootmgr
+    ```
+
+    You should see entries for both NixOS and Windows.
+  </Step>
+
+  <Step title="Test booting">
+    Restart your computer:
+
+    ```bash
+    reboot
+    ```
+
+    You should see a boot menu with options for:
+    - NixOS (current and previous generations)
+    - Windows Boot Manager
+  </Step>
+
+  <Step title="Test secure boot status">
+    After booting into NixOS, verify secure boot is active:
+
+    ```bash
+    bootctl status
+    ```
+
+    Look for "Secure Boot: enabled".
+  </Step>
+</Steps>
+
+## Boot manager configuration
+
+### Set default boot entry
+
+To change the default OS that boots:
+
+```bash
+# List boot order
+efibootmgr
+
+# Set boot order (replace 0000 and 0001 with your entry numbers)
+sudo efibootmgr --bootorder 0000,0001
+```
+
+### Adjust boot timeout
+
+Edit your NixOS configuration:
+
+```nix
+boot.loader = {
+  timeout = 10;  # Wait 10 seconds before booting default
+  systemd-boot = {
+    enable = true;
+    configurationLimit = 20;  # Keep 20 generations in boot menu
+  };
+};
+```
+
+## Sharing files between systems
+
+### Access Windows files from NixOS
+
+Mount the Windows partition:
+
+```bash
+# Find your Windows partition
+lsblk
+
+# Create mount point
+sudo mkdir /mnt/windows
+
+# Mount (replace /dev/nvme0n1p3 with your Windows partition)
+sudo mount -t ntfs-3g /dev/nvme0n1p3 /mnt/windows
+```
+
+To mount automatically, add to your NixOS configuration:
+
+```nix
+fileSystems."/mnt/windows" = {
+  device = "/dev/disk/by-uuid/YOUR-WINDOWS-UUID";
+  fsType = "ntfs-3g";
+  options = [ "rw" "uid=1000" ];
+};
+```
+
+Find the UUID with:
+
+```bash
+sudo blkid | grep ntfs
+```
+
+### Access NixOS files from Windows
+
+Windows can't read ext4 natively. Options:
+
+1. **Use WSL** - Install NixOS on WSL for file access (see [WSL guide](/installation/wsl))
+2. **Third-party tools** - Tools like [Linux File Systems for Windows](https://www.paragon-software.com/home/linuxfs-windows/)
+3. **Shared partition** - Create a separate FAT32 or NTFS partition for shared files
+
+## Troubleshooting
+
+### Windows disappeared from boot menu
+
+If Windows doesn't appear in the boot menu:
+
+```bash
+# Check if Windows bootloader exists
+ls /boot/EFI/Microsoft/Boot/
+
+# If missing, remount and copy again
+sudo mount /dev/nvme0n1p1 /mnt/winboot
+sudo rsync -av /mnt/winboot/EFI/Microsoft/ /boot/EFI/Microsoft/
+sudo umount /mnt/winboot
+```
+
+### Secure boot violations
+
+If you get secure boot violation errors:
+
+```bash
+# Check signing status
+sudo sbctl verify
+
+# Re-sign if needed
+sudo nixos-rebuild switch --flake ~/.config/flake#yourhostname
+```
+
+### Time differences between systems
+
+Windows and Linux handle hardware clock differently:
+
+**Fix in Windows** (recommended):
+
+```powershell
+# Run in PowerShell as Administrator
+reg add "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\TimeZoneInformation" /v RealTimeIsUniversal /d 1 /t REG_DWORD /f
+```
+
+**Or fix in NixOS**:
+
+```nix
+time.hardwareClockInLocalTime = true;
+```
+
+### Can't boot either system
+
+Boot from the NixOS installer USB and:
+
+```bash
+# Mount your NixOS partition
+sudo mount /dev/nvme0n1pX /mnt
+sudo mount /dev/nvme0n1p1 /mnt/boot  # EFI partition
+
+# Reinstall bootloader
+sudo nixos-enter --root /mnt
+nixos-rebuild switch --flake /etc/nixos#yourhostname
+```
+
+### Lanzaboote issues
+
+For detailed troubleshooting, see the [Lanzaboote quick start guide](https://github.com/nix-community/lanzaboote/blob/master/docs/QUICK_START.md).
+
+## Understanding the configuration
+
+The secure boot configuration uses Lanzaboote from `modules/nixos/boot/secure-boot.nix`:
+
+```nix
+config = mkIf sys.secureBoot {
+  # Add sbctl for managing secure boot
+  garden.packages = { inherit (pkgs) sbctl; };
+
+  # Disable systemd-boot (Lanzaboote replaces it)
+  boot.loader.systemd-boot.enable = mkForce false;
+
+  boot = {
+    bootspec.enable = true;
+    lanzaboote = {
+      enable = true;
+      pkiBundle = "/var/lib/sbctl";  # Where keys are stored
+    };
+  };
+};
+```
+
+This configuration:
+- Installs `sbctl` for key management
+- Enables Lanzaboote to replace systemd-boot
+- Stores secure boot keys in `/var/lib/sbctl`
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="NixOS installation" icon="download" href="/installation/nixos">
+    Complete NixOS installation guide
+  </Card>
+  <Card title="Configuration guide" icon="gear" href="/configuration/overview">
+    Customize your NixOS setup
+  </Card>
+</CardGroup>

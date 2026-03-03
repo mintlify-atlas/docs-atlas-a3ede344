@@ -1,0 +1,303 @@
+---
+title: "Uninstalling"
+description: "How to remove Isabel's Dotfiles and Nix from your system"
+---
+
+This guide covers how to uninstall Isabel's Dotfiles configuration and, if desired, completely remove Nix from your system.
+
+<Warning>
+  Uninstalling will remove all NixOS/nix-darwin system configurations and may delete important data. Make sure you have backups of any files you need before proceeding.
+</Warning>
+
+## Uninstalling nix-darwin (macOS)
+
+If you're using nix-darwin on macOS, you can cleanly uninstall it using the official uninstaller.
+
+<Steps>
+  <Step title="Run the uninstaller">
+    Execute the nix-darwin uninstaller from the official repository:
+
+    ```bash
+    nix run github:LnL7/nix-darwin#darwin-uninstaller
+    ```
+
+    This command will:
+    - Remove the nix-darwin system configuration
+    - Restore your original system files
+    - Clean up nix-darwin-specific changes
+  </Step>
+
+  <Step title="Follow the prompts">
+    The uninstaller will ask for confirmation before making changes. Follow the interactive prompts to complete the uninstallation.
+
+    <Tip>
+      The uninstaller will preserve your Nix store and packages. If you want to remove Nix entirely, continue to the next section.
+    </Tip>
+  </Step>
+</Steps>
+
+## Uninstalling NixOS
+
+Uninstalling NixOS requires reinstalling a different operating system, as NixOS is a complete Linux distribution.
+
+<Steps>
+  <Step title="Backup your data">
+    Before proceeding, back up any important files from your home directory and any other locations:
+
+    ```bash
+    # Example: backup to external drive
+    rsync -av /home/yourusername/ /mnt/backup/
+    ```
+  </Step>
+
+  <Step title="Create installation media">
+    Download and create installation media for your preferred operating system (Ubuntu, Fedora, etc.).
+  </Step>
+
+  <Step title="Boot from installation media">
+    Restart your computer and boot from the installation media.
+  </Step>
+
+  <Step title="Install new OS">
+    Follow your new operating system's installation process. You can choose to:
+    - Reformat the entire disk (removes all NixOS data)
+    - Keep your home partition and only replace the system partition (preserves user files)
+  </Step>
+</Steps>
+
+## Removing Nix from other systems
+
+If you installed Nix using the standalone installer on a non-NixOS system (Linux, macOS, WSL), follow these steps.
+
+<AccordionGroup>
+  <Accordion title="Multi-user installation (recommended)" icon="users">
+    For multi-user installations (the default on macOS and the recommended installation on Linux):
+
+    <Steps>
+      <Step title="Remove Nix daemon service">
+        On Linux with systemd:
+        ```bash
+        sudo systemctl stop nix-daemon.socket
+        sudo systemctl stop nix-daemon.service
+        sudo systemctl disable nix-daemon.socket
+        sudo systemctl disable nix-daemon.service
+        sudo systemctl daemon-reload
+        ```
+
+        On macOS:
+        ```bash
+        sudo launchctl unload /Library/LaunchDaemons/org.nixos.nix-daemon.plist
+        sudo rm /Library/LaunchDaemons/org.nixos.nix-daemon.plist
+        sudo launchctl unload /Library/LaunchDaemons/org.nixos.darwin-store.plist
+        sudo rm /Library/LaunchDaemons/org.nixos.darwin-store.plist
+        ```
+      </Step>
+
+      <Step title="Remove Nix store and files">
+        ```bash
+        sudo rm -rf /nix
+        ```
+
+        <Warning>
+          This permanently deletes all Nix packages and data. Make sure you don't need anything from `/nix` before running this command.
+        </Warning>
+      </Step>
+
+      <Step title="Remove Nix build users">
+        On Linux:
+        ```bash
+        for i in $(seq 1 32); do
+          sudo userdel nixbld$i
+        done
+        sudo groupdel nixbld
+        ```
+
+        On macOS:
+        ```bash
+        for i in $(seq 1 32); do
+          sudo dscl . -delete /Users/_nixbld$i
+        done
+        sudo dscl . -delete /Groups/nixbld
+        ```
+      </Step>
+
+      <Step title="Clean up shell configuration">
+        Remove Nix-related lines from your shell configuration files:
+
+        ```bash
+        # Edit these files and remove Nix-related content
+        nano ~/.bashrc
+        nano ~/.zshrc
+        nano ~/.profile
+        nano ~/.bash_profile
+        ```
+
+        Look for and remove lines that reference `/nix` or source Nix scripts.
+      </Step>
+
+      <Step title="Remove backup files">
+        The Nix installer creates backups of modified files:
+
+        ```bash
+        sudo rm -rf /etc/bashrc.backup-before-nix
+        sudo rm -rf /etc/zshrc.backup-before-nix
+        sudo rm -rf /etc/bash.bashrc.backup-before-nix
+        ```
+      </Step>
+    </Steps>
+  </Accordion>
+
+  <Accordion title="Single-user installation" icon="user">
+    For single-user installations (less common):
+
+    <Steps>
+      <Step title="Remove the Nix directory">
+        ```bash
+        rm -rf ~/nix
+        ```
+      </Step>
+
+      <Step title="Clean up shell configuration">
+        Remove Nix-related lines from your shell configuration files:
+
+        ```bash
+        nano ~/.bashrc
+        nano ~/.zshrc
+        nano ~/.profile
+        ```
+
+        Remove any lines that reference Nix or source Nix scripts.
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+
+## Removing Isabel's Dotfiles only
+
+If you want to keep Nix but stop using Isabel's Dotfiles configuration:
+
+<Steps>
+  <Step title="Switch to a different configuration">
+    If you have another NixOS/nix-darwin configuration:
+
+    ```bash
+    # NixOS
+    sudo nixos-rebuild switch --flake /path/to/other/config
+
+    # macOS
+    darwin-rebuild switch --flake /path/to/other/config
+    ```
+  </Step>
+
+  <Step title="Or create a minimal configuration">
+    Create a basic `flake.nix` with minimal settings and switch to it:
+
+    ```bash
+    mkdir ~/minimal-config
+    cd ~/minimal-config
+    # Create a minimal flake.nix
+    sudo nixos-rebuild switch --flake .#
+    ```
+  </Step>
+
+  <Step title="Remove the dotfiles repository">
+    Once you've switched to a different configuration:
+
+    ```bash
+    rm -rf ~/path/to/dotfiles
+    ```
+  </Step>
+
+  <Step title="Clean up old generations">
+    Remove old system generations that used Isabel's configuration:
+
+    ```bash
+    # List generations
+    sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
+
+    # Delete old generations
+    sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/system
+
+    # Garbage collect
+    sudo nix-collect-garbage -d
+    ```
+  </Step>
+</Steps>
+
+## Verification
+
+After uninstalling, verify that Nix has been completely removed:
+
+<CodeGroup>
+```bash Check for Nix directory
+ls /nix
+# Should return: No such file or directory
+```
+
+```bash Check for Nix commands
+which nix
+# Should return nothing
+```
+
+```bash Check for Nix in PATH
+echo $PATH | grep nix
+# Should return nothing
+```
+</CodeGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Permission denied when removing /nix">
+    On some systems, especially macOS with Apple Silicon, `/nix` may be on a separate volume:
+
+    ```bash
+    # Check if /nix is a mount point
+    mount | grep /nix
+
+    # If it's mounted, unmount first
+    sudo umount /nix
+
+    # Then remove
+    sudo rm -rf /nix
+
+    # On macOS, you may also need to remove the synthetic.conf entry
+    sudo nano /etc/synthetic.conf
+    # Remove the line containing "nix"
+    ```
+  </Accordion>
+
+  <Accordion title="Nix daemon won't stop">
+    If the Nix daemon service won't stop:
+
+    ```bash
+    # Force kill the daemon
+    sudo pkill nix-daemon
+
+    # Then proceed with uninstallation
+    ```
+  </Accordion>
+
+  <Accordion title="Files still reference Nix after removal">
+    Search for and update any remaining references:
+
+    ```bash
+    # Find files that reference Nix
+    grep -r "/nix" ~/.config/ ~/.local/ 2>/dev/null
+
+    # Manually edit or remove these files
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting help
+
+If you encounter issues during uninstallation:
+
+- Check the [official Nix manual](https://nixos.org/manual/nix/stable/installation/uninstall.html)
+- Visit the [NixOS Discourse](https://discourse.nixos.org/)
+- Join the [Nix community on Matrix](https://matrix.to/#/#nix:nixos.org)
+
+<Note>
+  Remember that uninstalling is permanent. If you're unsure, consider keeping your configuration in a backup location before removing everything.
+</Note>

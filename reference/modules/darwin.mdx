@@ -1,0 +1,330 @@
+---
+title: Darwin modules
+description: System-level configuration for macOS using nix-darwin
+---
+
+Darwin modules configure macOS systems using nix-darwin. They provide declarative configuration for system preferences, Homebrew packages, hardware settings, and macOS-specific features.
+
+## What Darwin modules provide
+
+These modules adapt the NixOS configuration framework to work on macOS, handling the differences between Linux and Darwin while maintaining a consistent interface.
+
+<CardGroup cols={2}>
+  <Card title="System preferences" icon="sliders">
+    Dock, Finder, keyboard, trackpad, and other macOS settings
+  </Card>
+  <Card title="Homebrew integration" icon="beer-mug-empty">
+    Declarative Homebrew package and cask management
+  </Card>
+  <Card title="Hardware settings" icon="laptop">
+    Keyboard layouts, trackpad configuration, and device preferences
+  </Card>
+  <Card title="Security" icon="lock">
+    Firewall, FileVault, and security policies
+  </Card>
+</CardGroup>
+
+## Module categories
+
+### preferences/
+
+macOS system preferences configured declaratively.
+
+<AccordionGroup>
+  <Accordion title="dock.nix - Dock configuration">
+    Control the macOS Dock appearance and behavior.
+
+    ```nix modules/darwin/preferences/dock.nix
+    {
+      system.defaults.dock = {
+        autohide = true;
+        autohide-delay = 0.0;
+        autohide-time-modifier = 1.0;
+
+        orientation = "bottom";
+        tilesize = 1;
+
+        # Disable recent apps and spaces
+        show-recents = false;
+        mru-spaces = false;
+
+        # Hot corners (1 = Disabled)
+        wvous-tl-corner = 1;
+        wvous-tr-corner = 1;
+        wvous-bl-corner = 1;
+        wvous-br-corner = 1;
+      };
+    }
+    ```
+
+    **Hot corner options:**
+    - `1` - Disabled
+    - `2` - Mission Control
+    - `3` - Application Windows
+    - `4` - Desktop
+    - `5` - Start Screen Saver
+    - `10` - Put Display to Sleep
+    - `11` - Launchpad
+    - `13` - Lock Screen
+  </Accordion>
+
+  <Accordion title="finder.nix - Finder preferences">
+    Configure Finder file browser settings.
+
+    Includes:
+    - Default view style (icon, list, column, gallery)
+    - Show/hide hidden files
+    - Show file extensions
+    - Search scope defaults
+    - Path bar and status bar visibility
+  </Accordion>
+
+  <Accordion title="clock.nix - Menu bar clock">
+    Configure the menu bar clock display format and options.
+  </Accordion>
+
+  <Accordion title="login.nix - Login window">
+    Login window appearance and behavior, including:
+    - Auto-login settings
+    - Guest account configuration
+    - Login window text
+  </Accordion>
+
+  <Accordion title="measurements.nix - Units and formats">
+    Regional settings for:
+    - Temperature units (Celsius/Fahrenheit)
+    - Measurement system (metric/imperial)
+  </Accordion>
+
+  <Accordion title="images.nix - Image handling">
+    Screenshot location, format, and default image viewers.
+  </Accordion>
+
+  <Accordion title="sound.nix - Audio settings">
+    Sound effects, volume, and audio device configuration.
+  </Accordion>
+
+  <Accordion title="misc.nix - Other preferences">
+    Miscellaneous system preferences that don't fit other categories.
+  </Accordion>
+</AccordionGroup>
+
+### hardware/
+
+Hardware device configuration.
+
+<AccordionGroup>
+  <Accordion title="keyboard.nix - Keyboard settings">
+    Keyboard layout, modifier keys, and input settings.
+
+    Configure:
+    - Key repeat rate and delay
+    - Modifier key remapping (Caps Lock to Control, etc.)
+    - Keyboard shortcuts
+    - Input sources and layouts
+  </Accordion>
+
+  <Accordion title="trackpad.nix - Trackpad configuration">
+    Trackpad gestures and sensitivity.
+
+    Configure:
+    - Tap to click
+    - Natural scrolling direction
+    - Tracking speed
+    - Multi-finger gestures
+    - Force Click behavior
+  </Accordion>
+</AccordionGroup>
+
+### brew/
+
+Homebrew package manager integration.
+
+<AccordionGroup>
+  <Accordion title="Homebrew management">
+    Declaratively manage Homebrew packages, casks, and taps.
+
+    The `brew/` modules provide:
+    - Homebrew installation and updates
+    - Package installation from Homebrew
+    - Cask installation for GUI applications
+    - Tap management for third-party repositories
+    - Environment variable configuration
+
+    **Example usage:**
+    ```nix
+    {
+      homebrew = {
+        enable = true;
+        
+        brews = [
+          "imagemagick"
+          "ffmpeg"
+        ];
+        
+        casks = [
+          "discord"
+          "spotify"
+        ];
+        
+        taps = [
+          "homebrew/cask-fonts"
+        ];
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="environment.nix - Homebrew paths">
+    Sets up environment variables so Homebrew packages are available in your PATH.
+
+    Automatically configures:
+    - `/opt/homebrew/bin` for Apple Silicon
+    - `/usr/local/bin` for Intel Macs
+    - Shell integration for bash, zsh, fish
+  </Accordion>
+</AccordionGroup>
+
+### security/
+
+Security settings for macOS.
+
+<Accordion title="Security features">
+  - Firewall configuration
+  - FileVault encryption
+  - Gatekeeper settings
+  - Privacy controls
+</Accordion>
+
+## Top-level modules
+
+These modules live directly in the `darwin/` directory:
+
+<AccordionGroup>
+  <Accordion title="nix.nix - Nix daemon configuration">
+    Darwin-specific Nix daemon settings, including:
+    - Build users and groups
+    - Daemon socket configuration
+    - Auto-optimization settings
+  </Accordion>
+
+  <Accordion title="documentation.nix - Disable documentation">
+    Disables man page generation to save disk space and build time.
+
+    ```nix
+    {
+      documentation.enable = false;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="system-packages.nix - System packages">
+    Packages that should be available system-wide to all users.
+  </Accordion>
+
+  <Accordion title="config-path.nix - Configuration path">
+    Sets the path to the nix-darwin configuration for system management.
+  </Accordion>
+
+  <Accordion title="extras.nix - External modules">
+    Imports external modules that don't have a designated place in the structure.
+  </Accordion>
+
+  <Accordion title="legacy.nix - Compatibility shims">
+    Compatibility layer for options that need refactoring upstream.
+
+    Provides backwards compatibility while the framework evolves.
+  </Accordion>
+</AccordionGroup>
+
+## Usage example
+
+Here's a complete example of configuring a macOS system:
+
+```nix darwin-configuration.nix
+{ inputs, pkgs, ... }:
+{
+  # Import the framework
+  imports = [ inputs.garden.darwinModules.default ];
+
+  # System preferences
+  system.defaults = {
+    dock = {
+      autohide = true;
+      orientation = "left";
+      show-recents = false;
+    };
+    
+    finder = {
+      AppleShowAllExtensions = true;
+      ShowPathbar = true;
+    };
+  };
+
+  # Homebrew packages
+  homebrew = {
+    enable = true;
+    
+    brews = [ "mas" ];
+    
+    casks = [
+      "raycast"
+      "arc"
+    ];
+  };
+
+  # System packages
+  garden.packages = with pkgs; {
+    inherit git vim curl;
+  };
+
+  # Configure Nix
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+  };
+}
+```
+
+## Key features
+
+### Declarative system preferences
+
+All macOS system preferences are declared in Nix configuration files. When you rebuild your system, preferences are automatically applied.
+
+```bash
+darwin-rebuild switch --flake .
+```
+
+### Homebrew integration
+
+Homebrew packages are declared alongside Nix packages, giving you access to both ecosystems. The framework handles installation and updates.
+
+### Consistent with NixOS
+
+Darwin modules mirror the structure and naming of NixOS modules where possible, making it easy to maintain configurations for both platforms.
+
+### Base module inheritance
+
+Darwin automatically imports base modules, sharing common configuration between macOS and NixOS systems.
+
+## Differences from NixOS
+
+macOS limitations mean some NixOS features aren't available:
+
+- No systemd (uses launchd instead)
+- Different user management system
+- Limited kernel configuration
+- Some services require Homebrew versions
+
+The framework abstracts these differences where possible, but you may need platform-specific configuration for advanced use cases.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Home Manager modules" href="/reference/modules/home" icon="home">
+    Per-user configuration that works on both NixOS and Darwin
+  </Card>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    Shared configuration between platforms
+  </Card>
+</CardGroup>

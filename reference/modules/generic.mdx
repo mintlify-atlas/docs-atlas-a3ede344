@@ -1,0 +1,367 @@
+---
+title: Generic modules
+description: Core functionality shared across all module types in Isabel's Dotfiles
+---
+
+Generic modules provide the most fundamental functionality in the framework. They're imported by base, NixOS, Darwin, and Home Manager modules, establishing core concepts like package management and profile selection.
+
+## What generic modules provide
+
+These modules define the basic building blocks that all other modules rely on. They work across every platform and module type.
+
+<CardGroup cols={2}>
+  <Card title="Package management" icon="box">
+    Unified package installation API across all platforms
+  </Card>
+  <Card title="Profile system" icon="user">
+    Machine profiles for different use cases
+  </Card>
+</CardGroup>
+
+## Module structure
+
+The generic modules directory contains only three files, but they're crucial to how the entire framework operates:
+
+```
+modules/generic/
+├── default.nix      # Imports all generic modules
+├── packages.nix     # Unified package management
+└── profiles.nix     # Machine profile options
+```
+
+## Module details
+
+<AccordionGroup>
+  <Accordion title="packages.nix - Universal package installation">
+    The `garden.packages` option provides a consistent way to install packages across NixOS, Darwin, and Home Manager.
+
+    ```nix modules/generic/packages.nix
+    {
+      options.garden.packages = mkOption {
+        type = attrsOf package;
+        default = { };
+        description = ''
+          A set of packages to install in the garden environment.
+        '';
+      };
+
+      config = mergeAttrsList [
+        (optionalAttrs (_class == "nixos" || _class == "darwin") {
+          environment.systemPackages = builtins.attrValues config.garden.packages;
+        })
+
+        (optionalAttrs (_class == "homeManager") {
+          home.packages = builtins.attrValues config.garden.packages;
+        })
+      ];
+    }
+    ```
+
+    **How it works:**
+
+    The module detects which type of configuration you're using (`_class` variable) and automatically translates `garden.packages` to the appropriate platform-specific option:
+    - **NixOS**: `environment.systemPackages`
+    - **Darwin**: `environment.systemPackages`
+    - **Home Manager**: `home.packages`
+
+    **Usage:**
+    ```nix
+    {
+      # This works identically on NixOS, Darwin, and Home Manager
+      garden.packages = with pkgs; {
+        inherit git vim curl ripgrep fd;
+        myCustomPkg = pkgs.hello;
+      };
+    }
+    ```
+
+    **Why use an attribute set?**
+
+    Unlike the traditional list-based approach (`[ git vim curl ]`), the attribute set approach provides:
+    - Named packages for better debugging
+    - Easy override of specific packages
+    - Better error messages ("duplicate key 'git'" instead of silent duplication)
+    - Ability to reference packages by name elsewhere
+
+    **Accessing installed packages:**
+    ```nix
+    {
+      garden.packages = with pkgs; { inherit git; };
+      
+      # Reference the package elsewhere
+      programs.git.package = config.garden.packages.git;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="profiles.nix - Machine profiles">
+    Machine profiles group related configuration based on how you use the machine.
+
+    ```nix modules/generic/profiles.nix
+    { lib, ... }:
+    {
+      options.garden.profiles = {
+        graphical.enable = mkEnableOption "Graphical interface";
+        headless.enable = mkEnableOption "Headless";
+        workstation.enable = mkEnableOption "Workstation";
+        laptop.enable = mkEnableOption "Laptop";
+        server.enable = mkEnableOption "Server";
+      };
+    }
+    ```
+
+    **Available profiles:**
+
+    - **graphical**: Enables GUI applications, window managers, and desktop environment features
+    - **headless**: Optimizes for servers without displays, disables GUI components
+    - **workstation**: Development machine with full tooling, IDEs, and development dependencies
+    - **laptop**: Laptop-specific settings like power management, battery optimization, and touchpad configuration
+    - **server**: Server-optimized settings for hosting services and applications
+
+    **Example usage:**
+    ```nix
+    {
+      # Desktop workstation
+      garden.profiles = {
+        graphical.enable = true;
+        workstation.enable = true;
+      };
+    }
+
+    {
+      # Headless server
+      garden.profiles = {
+        headless.enable = true;
+        server.enable = true;
+      };
+    }
+
+    {
+      # Development laptop
+      garden.profiles = {
+        graphical.enable = true;
+        workstation.enable = true;
+        laptop.enable = true;
+      };
+    }
+    ```
+
+    **How modules use profiles:**
+
+    Other modules check these profiles to decide whether to enable features:
+
+    ```nix
+    # In a graphical module
+    {
+      config = mkIf config.garden.profiles.graphical.enable {
+        # Enable GUI features only on graphical systems
+        programs.firefox.enable = true;
+        services.xserver.enable = true;
+      };
+    }
+
+    # In a headless module  
+    {
+      config = mkIf config.garden.profiles.headless.enable {
+        # Disable unnecessary services on headless systems
+        documentation.enable = false;
+        fonts.fontconfig.enable = false;
+      };
+    }
+    ```
+
+    **Combining profiles:**
+
+    You can enable multiple profiles simultaneously. For example, a laptop can be both `graphical` and `workstation`:
+
+    ```nix
+    {
+      garden.profiles = {
+        graphical.enable = true;
+        workstation.enable = true;
+        laptop.enable = true;
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="default.nix - Module imports">
+    The default.nix file simply imports the other generic modules:
+
+    ```nix modules/generic/default.nix
+    {
+      imports = [
+        ./packages.nix
+        ./profiles.nix
+      ];
+    }
+    ```
+
+    This allows other modules to import the entire generic module set with a single import:
+
+    ```nix
+    {
+      imports = [ ../generic ];
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Usage examples
+
+### Package installation
+
+Generic modules make package installation consistent across all platforms:
+
+**Before (platform-specific):**
+```nix
+# NixOS
+{ environment.systemPackages = [ pkgs.git pkgs.vim ]; }
+
+# Darwin
+{ environment.systemPackages = [ pkgs.git pkgs.vim ]; }
+
+# Home Manager
+{ home.packages = [ pkgs.git pkgs.vim ]; }
+```
+
+**After (unified):**
+```nix
+# Works everywhere
+{ garden.packages = with pkgs; { inherit git vim; }; }
+```
+
+### Profile-based configuration
+
+Use profiles to enable features based on machine type:
+
+```nix
+# Desktop machine
+{
+  garden.profiles.graphical.enable = true;
+  garden.profiles.workstation.enable = true;
+  
+  # Packages are automatically selected based on profiles
+  # Graphical profile enables GUI apps
+  # Workstation profile enables dev tools
+}
+
+# Server
+{
+  garden.profiles.headless.enable = true;
+  garden.profiles.server.enable = true;
+  
+  # Server-optimized settings
+  # No GUI packages installed
+  # Documentation generation disabled
+}
+```
+
+## Design philosophy
+
+### Minimal and focused
+
+Generic modules provide only the absolute essentials needed by all other modules. They establish patterns without implementing specifics.
+
+### Platform-agnostic
+
+Everything in generic modules must work on NixOS, Darwin, and Home Manager. Platform-specific code belongs in base or specialized modules.
+
+### Foundation for extension
+
+Other modules build on generic modules:
+- **Base modules** add Nix configuration and user management
+- **NixOS modules** add system services and hardware support
+- **Darwin modules** add macOS system preferences
+- **Home Manager modules** add user application configuration
+
+## Implementation details
+
+### The _class variable
+
+Generic modules use the `_class` variable to detect which type of configuration is running:
+
+```nix
+_class == "nixos"       # NixOS system configuration
+_class == "darwin"      # Darwin system configuration  
+_class == "homeManager" # Home Manager user configuration
+```
+
+This is set by each platform's default.nix:
+
+```nix modules/nixos/default.nix
+{ _class = "nixos"; }
+```
+
+```nix modules/darwin/default.nix
+{ _class = "darwin"; }
+```
+
+```nix modules/home/default.nix
+{ _class = "homeManager"; }
+```
+
+### Attribute set vs list
+
+The `garden.packages` option uses an attribute set instead of a list:
+
+```nix
+# Attribute set (used by garden.packages)
+{ git = pkgs.git; vim = pkgs.vim; }
+
+# Converted to list with attrValues
+builtins.attrValues config.garden.packages
+# => [ pkgs.git pkgs.vim ]
+```
+
+This allows:
+- Named packages for clarity
+- Prevention of duplicate packages
+- Easy overriding by other modules
+
+## Module inheritance chain
+
+Generic modules are at the bottom of the inheritance chain:
+
+```
+Flake modules
+    ↓
+Platform modules (NixOS/Darwin/Home)
+    ↓
+Base modules
+    ↓
+Generic modules ← You are here
+```
+
+Every configuration type imports generic modules, making `garden.packages` and `garden.profiles` available everywhere.
+
+## Key features
+
+### Universal package management
+
+Install packages the same way on every platform:
+```nix
+{ garden.packages = with pkgs; { inherit hello; }; }
+```
+
+### Profile system
+
+Describe your machine's purpose, let the framework configure it:
+```nix
+{ garden.profiles.workstation.enable = true; }
+```
+
+### Automatic platform detection
+
+Modules automatically adapt to the platform they're running on. You don't need to write platform-specific code.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    See how base modules build on generic modules
+  </Card>
+  <Card title="NixOS modules" href="/reference/modules/nixos" icon="linux">
+    Explore NixOS-specific modules
+  </Card>
+</CardGroup>

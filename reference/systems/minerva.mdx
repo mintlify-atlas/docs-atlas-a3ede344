@@ -1,0 +1,271 @@
+---
+title: Minerva
+description: The original server hosting personal services, social platforms, and development tools
+---
+
+## Overview
+
+Minerva is the original server in Isabel's infrastructure, hosted on Hetzner and running a comprehensive suite of personal services. This system serves as the primary hub for social media, development tools, authentication, and more.
+
+<Note>
+  Named after the Roman goddess of wisdom and strategic warfare, Minerva is the strategic center of Isabel's self-hosted infrastructure.
+</Note>
+
+## System specifications
+
+<CardGroup cols={2}>
+  <Card title="CPU" icon="microchip">
+    AMD processor
+  </Card>
+  <Card title="Hosting" icon="cloud">
+    Hetzner dedicated server
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    Ext4 with dedicated storage partition
+  </Card>
+  <Card title="Network" icon="network-wired">
+    Dual-stack IPv4/IPv6
+  </Card>
+</CardGroup>
+
+## Hardware configuration
+
+Minerva uses a multi-partition layout with dedicated storage:
+
+```nix
+fileSystems = {
+  "/" = {
+    device = "/dev/disk/by-uuid/77a90bab-9a6f-4cf0-8493-7db518b9214a";
+    fsType = "ext4";
+  };
+
+  "/efi" = {
+    device = "/dev/disk/by-uuid/88C6-A9EA";
+    fsType = "vfat";
+    options = [
+      "fmask=0077"
+      "dmask=0077"
+    ];
+  };
+
+  "/srv/storage" = {
+    device = "/dev/disk/by-uuid/157ffe4f-f8f9-4d20-b2e1-3dc144941729";
+    fsType = "ext4";
+  };
+};
+```
+
+Reference: `systems/minerva/hardware.nix:2-21`
+
+<Info>
+  The `/srv/storage` partition provides dedicated space for application data, isolating it from system files.
+</Info>
+
+## Enabled profiles
+
+Minerva is configured as a headless server with Hetzner-specific optimizations:
+
+```nix
+profiles = {
+  headless.enable = true;
+  server.enable = true;
+
+  hetzner = {
+    enable = true;
+    ipv4 = "91.107.198.173";
+    ipv6 = "2a01:4f8:c012:2f67::1";
+  };
+};
+```
+
+Reference: `systems/minerva/default.nix:8-17`
+
+<CardGroup cols={2}>
+  <Card title="IPv4 Address" icon="hashtag">
+    91.107.198.173
+  </Card>
+  <Card title="IPv6 Address" icon="hashtag">
+    2a01:4f8:c012:2f67::1
+  </Card>
+</CardGroup>
+
+## Device configuration
+
+```nix
+device = {
+  cpu = "amd";
+  gpu = null;
+};
+```
+
+Reference: `systems/minerva/default.nix:19-22`
+
+As a headless server, Minerva has no GPU configuration.
+
+## Services overview
+
+Minerva runs an extensive collection of services organized by category:
+
+### Core services
+
+```nix
+services = {
+  anubis.enable = true;
+  vaultwarden.enable = true;
+  isabelroses-website.enable = true;
+  blahaj.enable = true;
+  kanidm.enable = true;
+  mailserver.enable = true;
+  hostling.enable = true;
+
+  # web
+  nginx.enable = true;
+  // ...
+};
+```
+
+Reference: `systems/minerva/default.nix:24-55`
+
+<CardGroup cols={2}>
+  <Card title="Anubis" icon="robot">
+    Custom service application
+  </Card>
+  <Card title="Vaultwarden" icon="key">
+    Self-hosted password manager (Bitwarden-compatible)
+  </Card>
+  <Card title="Personal Website" icon="house">
+    isabelroses.com hosting
+  </Card>
+  <Card title="Blahaj" icon="fish">
+    Custom application service
+  </Card>
+  <Card title="Kanidm" icon="users">
+    Identity and access management
+  </Card>
+  <Card title="Mail Server" icon="envelope">
+    Self-hosted email infrastructure
+  </Card>
+</CardGroup>
+
+### Development tools
+
+```nix
+# dev
+atuin.enable = true;
+forgejo.enable = true;
+wakapi.enable = true;
+```
+
+Reference: `systems/minerva/default.nix:37-39`
+
+<CardGroup cols={3}>
+  <Card title="Atuin" icon="clock">
+    Shell history sync service
+  </Card>
+  <Card title="Forgejo" icon="code-branch">
+    Self-hosted Git forge
+  </Card>
+  <Card title="Wakapi" icon="chart-line">
+    Coding time tracking (WakaTime-compatible)
+  </Card>
+</CardGroup>
+
+### Social platforms
+
+```nix
+# social
+akkoma.enable = true;
+nixpkgs-prs-bot = {
+  enable = true;
+  fedi.enable = true;
+  bsky.enable = true;
+};
+matrix.enable = true;
+tranquil.enable = true;
+```
+
+Reference: `systems/minerva/default.nix:41-49`
+
+<CardGroup cols={2}>
+  <Card title="Akkoma" icon="comments">
+    Fediverse server (ActivityPub-compatible)
+  </Card>
+  <Card title="NixPkgs PRs Bot" icon="robot">
+    Automated bot posting to Fediverse and Bluesky
+  </Card>
+  <Card title="Matrix" icon="message">
+    Decentralized chat server
+  </Card>
+  <Card title="Tranquil" icon="dove">
+    Custom social application
+  </Card>
+</CardGroup>
+
+### Databases
+
+```nix
+# databases
+postgresql.enable = true;
+redis.enable = true;
+```
+
+Reference: `systems/minerva/default.nix:51-53`
+
+<Info>
+  PostgreSQL and Redis provide database backends for the various applications running on Minerva.
+</Info>
+
+## User configuration
+
+Minerva has minimal user-level configuration, focusing on GPG signing:
+
+```nix
+home-manager.users.isabel = {
+  programs = {
+    git.signing.key = "7F2F6BD6997FCDF7";
+  };
+};
+```
+
+Reference: `systems/minerva/users.nix:2-6`
+
+## What makes it unique
+
+<AccordionGroup>
+  <Accordion title="Original infrastructure">
+    As the original server, Minerva hosts the core of Isabel's self-hosted infrastructure, making it the foundation for the entire ecosystem.
+  </Accordion>
+  
+  <Accordion title="Comprehensive service stack">
+    With 15+ services spanning authentication, social media, development, and databases, Minerva demonstrates the full power of NixOS declarative configuration.
+  </Accordion>
+  
+  <Accordion title="Identity provider">
+    Kanidm and the mail server make Minerva the central identity and authentication hub for all other services.
+  </Accordion>
+  
+  <Accordion title="Social hub">
+    Running Akkoma, Matrix, and automated bots, Minerva serves as the social media presence for Isabel's online identity.
+  </Accordion>
+  
+  <Accordion title="Development platform">
+    Forgejo provides a self-hosted Git forge, while Wakapi and Atuin track development activity and shell history.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Minerva is a critical piece of infrastructure. Changes to this system should be carefully tested, as failures could impact multiple dependent services.
+</Warning>
+
+## Service dependencies
+
+Many services on Minerva depend on each other:
+
+- PostgreSQL supports Akkoma, Forgejo, and other applications
+- Kanidm provides authentication for multiple services
+- Nginx reverse proxies all web-facing applications
+- The mail server enables notifications and account recovery
+
+<Tip>
+  When deploying changes to Minerva, consider the service dependency graph and plan for graceful restarts to minimize downtime.
+</Tip>

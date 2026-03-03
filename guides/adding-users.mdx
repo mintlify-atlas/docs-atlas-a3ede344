@@ -1,0 +1,310 @@
+---
+title: Adding users
+description: Create and configure user accounts across your NixOS and nix-darwin systems
+---
+
+User configuration in this flake is split across multiple locations to separate concerns between base user setup, system-level configuration, and home-manager profiles.
+
+## User configuration structure
+
+Users are configured in three places:
+
+1. `/modules/base/users/options.nix` - Declares available users
+2. `/modules/base/users/<user>.nix` - SSH keys and base configuration
+3. `/modules/nixos/users/<user>.nix` - System-level settings (passwords, groups)
+4. `/home/<user>/` - Home-manager configuration (optional)
+5. `systems/<hostname>/users.nix` - Per-system user assignments
+
+## Creating a new user
+
+<Steps>
+  <Step title="Add user to options.nix">
+    Edit `/modules/base/users/options.nix` to include your new user in the default list:
+
+    ```nix modules/base/users/options.nix
+    {
+      options.garden.system = {
+        users = mkOption {
+          type = listOf str;
+          default = [ "isabel" "newuser" ]; # Add your user here
+          description = '''
+            A list of users that you wish to declare as your non-system users.
+          ''';
+        };
+      };
+    }
+    ```
+
+    <Warning>
+      If you don't add any users to `garden.system.users`, you may end up with an unbootable system!
+    </Warning>
+  </Step>
+
+  <Step title="Create base user configuration">
+    Create `/modules/base/users/<user>.nix` for SSH keys and basic settings:
+
+    ```nix modules/base/users/newuser.nix
+    {
+      lib,
+      config,
+      ...
+    }:
+    let
+      inherit (lib) elem mkIf;
+    in
+    {
+      config = mkIf (elem "newuser" config.garden.system.users) {
+        users.users.newuser = {
+          openssh.authorizedKeys.keys = [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... newuser@machine"
+          ];
+        };
+      };
+    }
+    ```
+
+    <Tip>
+      Get your SSH public key with: `cat ~/.ssh/id_ed25519.pub`
+    </Tip>
+  </Step>
+
+  <Step title="Add system-level configuration">
+    Create `/modules/nixos/users/<user>.nix` for password and system settings:
+
+    ```nix modules/nixos/users/newuser.nix
+    {
+      lib,
+      config,
+      ...
+    }:
+    let
+      inherit (lib) elem mkIf;
+    in
+    {
+      config = mkIf (elem "newuser" config.garden.system.users) {
+        users.users.newuser = {
+          hashedPassword = "$y$j9T$vCF2V4znV5q3n6PxO5i6z/$...";
+        };
+      };
+    }
+    ```
+
+    Generate a hashed password:
+
+    ```bash
+    mkpasswd
+    # Enter your password when prompted
+    # Copy the resulting hash
+    ```
+  </Step>
+
+  <Step title="Assign user to systems">
+    In each system's `users.nix` file, add the user:
+
+    ```nix systems/yoursystem/users.nix
+    {
+      garden.system = {
+        mainUser = "newuser";        # Optional: set as main user
+        users = [ "isabel" "newuser" ]; # Add to users list
+      };
+
+      # Optional: Add home-manager configuration
+      home-manager.users.newuser.garden = {
+        profiles = {
+          git.enable = true;
+          shell.enable = true;
+        };
+      };
+    }
+    ```
+
+    <Accordion title="Main user vs regular users">
+      The `mainUser` is treated as the primary user on the system and may receive additional permissions or default configurations. If not specified, the first user in the `users` list becomes the main user.
+    </Accordion>
+  </Step>
+
+  <Step title="Create home-manager configuration (optional)">
+    For user-specific applications and settings, create `/home/<user>/`:
+
+    ```nix home/newuser/default.nix
+    {
+      imports = [
+        ./cli        # Command-line tools
+        ./packages.nix  # User packages
+      ];
+    }
+    ```
+
+    See the [Adding Packages](/guides/adding-packages) guide for package configuration.
+  </Step>
+</Steps>
+
+## How user creation works
+
+The `mkuser.nix` module automatically creates users declared in `garden.system.users` with sensible defaults:
+
+```nix modules/base/users/mkuser.nix
+users.users = genAttrs config.garden.system.users (
+  name:
+  mergeAttrsList [
+    {
+      shell = "/run/current-system/sw/bin/${shell}";
+    }
+
+    (optionalAttrs (_class == "nixos") {
+      home = "/home/${name}";
+      uid = mkDefault 1000;
+      isNormalUser = true;
+
+      # Automatically added groups
+      extraGroups = [
+        "wheel"        # sudo access
+        "nix"
+        "networkmanager"
+        "audio"
+        "video"
+        # ... and more
+      ];
+    })
+  ]
+);
+```
+
+This means you don't need to manually configure:
+- Home directory location
+- Whether the user is a normal user
+- Basic group memberships
+- Shell configuration
+
+## Example user configurations
+
+<CodeGroup>
+```nix Minimal user
+# modules/base/users/alice.nix
+{
+  lib,
+  config,
+  ...
+}:
+{
+  config = lib.mkIf (lib.elem "alice" config.garden.system.users) {
+    users.users.alice = {
+      openssh.authorizedKeys.keys = [
+        "ssh-ed25519 AAAAC3... alice@laptop"
+      ];
+    };
+  };
+}
+
+# modules/nixos/users/alice.nix
+{
+  lib,
+  config,
+  ...
+}:
+{
+  config = lib.mkIf (lib.elem "alice" config.garden.system.users) {
+    users.users.alice = {
+      hashedPassword = "$y$j9T$...";
+    };
+  };
+}
+```
+
+```nix User with home-manager
+# systems/laptop/users.nix
+{
+  garden.system = {
+    mainUser = "bob";
+    users = [ "bob" ];
+  };
+
+  home-manager.users.bob = {
+    garden.profiles = {
+      workstation.enable = true;
+      graphical.enable = true;
+    };
+
+    programs.git = {
+      userName = "Bob Smith";
+      userEmail = "bob@example.com";
+      signing.key = "ABCD1234";
+    };
+  };
+}
+```
+
+```nix Multiple users on one system
+# systems/shared/users.nix
+{
+  garden.system = {
+    mainUser = "admin";
+    users = [ "admin" "developer" "guest" ];
+  };
+
+  # Configure each user separately
+  home-manager.users.admin.garden.profiles.workstation.enable = true;
+  home-manager.users.developer.garden.profiles.graphical.enable = true;
+  home-manager.users.guest.garden.profiles.minimal.enable = true;
+}
+```
+</CodeGroup>
+
+## User template structure
+
+Here's the recommended structure for a complete user setup:
+
+```
+modules/base/users/
+└── yourname.nix          # SSH keys
+
+modules/nixos/users/
+└── yourname.nix          # Hashed password
+
+home/yourname/
+├── default.nix           # Main imports
+├── packages.nix          # User packages
+├── cli/                  # CLI tools config
+│   ├── default.nix
+│   ├── git.nix
+│   └── shell/
+├── gui/                  # GUI apps config
+│   ├── default.nix
+│   └── browser.nix
+└── system/               # System integration
+    ├── default.nix
+    └── ssh.nix
+
+systems/yoursystem/
+└── users.nix             # User assignment
+```
+
+## Managing user groups
+
+Users automatically get added to common groups via `mkuser.nix`. To add additional groups:
+
+```nix systems/yoursystem/users.nix
+{
+  # Add user to extra groups
+  users.users.yourname.extraGroups = [ "docker" "vboxusers" ];
+}
+```
+
+Groups are only added if they exist on the system (using the `ifTheyExist` helper).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Add packages" icon="box" href="/guides/adding-packages">
+    Install packages for your user
+  </Card>
+  <Card title="Secrets management" icon="key" href="/guides/secrets-management">
+    Set up user-level secrets
+  </Card>
+  <Card title="Adding systems" icon="server" href="/guides/adding-systems">
+    Create systems for your users
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Fix common user issues
+  </Card>
+</CardGroup>

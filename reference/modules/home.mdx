@@ -1,0 +1,387 @@
+---
+title: Home Manager modules
+description: Per-user configuration for dotfiles, applications, and environment settings
+---
+
+Home Manager modules configure your personal user environment. They manage dotfiles, application settings, shell configuration, themes, and everything else that lives in your home directory.
+
+## What Home Manager modules provide
+
+Unlike system modules that require root access, Home Manager modules configure your personal environment. They work on both NixOS and Darwin, giving you consistent dotfiles across all machines.
+
+<CardGroup cols={2}>
+  <Card title="Programs" icon="terminal">
+    Configure applications like browsers, editors, and terminals
+  </Card>
+  <Card title="Environment" icon="leaf">
+    Shell configuration, environment variables, and PATH
+  </Card>
+  <Card title="Themes" icon="palette">
+    Fonts, colors, and visual styling
+  </Card>
+  <Card title="Profiles" icon="user">
+    Machine profiles for different use cases
+  </Card>
+</CardGroup>
+
+## Module categories
+
+### programs/
+
+Application configuration and program defaults.
+
+<AccordionGroup>
+  <Accordion title="defaults.nix - Default programs">
+    Configure which programs to use for common tasks.
+
+    ```nix modules/home/programs/defaults.nix
+    {
+      garden.programs.defaults = {
+        # Shell and terminal
+        shell = "zsh";          # bash, zsh, fish, nushell
+        terminal = "ghostty";   # ghostty, alacritty, kitty, wezterm, foot
+        
+        # Applications
+        browser = "chromium";   # firefox, chromium, thorium, zen
+        editor = "nvim";        # nvim, codium
+        fileManager = "cosmic-files"; # cosmic-files, dolphin, nemo
+        
+        # Desktop environment
+        launcher = "rofi";      # rofi, wofi, cosmic-launcher
+        bar = "ags";            # waybar, ags, quickshell
+        screenLocker = "gtklock"; # swaylock, gtklock, cosmic-greeter
+        
+        # Utilities
+        pager = "less -FR";
+        manpager = "nvim +Man!";
+        noiseSuppressor = "rnnoise";
+      };
+    }
+    ```
+
+    These defaults are used throughout your configuration to automatically select the right program for each task.
+  </Accordion>
+
+  <Accordion title="discord.nix - Discord configuration">
+    Discord client configuration with custom themes and plugins.
+  </Accordion>
+
+  <Accordion title="pentesting.nix - Security tools">
+    Security testing and penetration testing tool configurations.
+  </Accordion>
+</AccordionGroup>
+
+### environment/
+
+Shell environment, variables, and PATH configuration.
+
+<AccordionGroup>
+  <Accordion title="shell.nix - Shell configuration">
+    Shell-specific settings for bash, zsh, fish, or nushell.
+
+    Configures:
+    - Shell aliases
+    - Shell functions
+    - Shell-specific options
+    - Prompt customization
+  </Accordion>
+
+  <Accordion title="variables.nix - Environment variables">
+    Set environment variables for your session.
+
+    ```nix
+    {
+      home.sessionVariables = {
+        EDITOR = "nvim";
+        BROWSER = "chromium";
+        TERMINAL = "ghostty";
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="path.nix - PATH management">
+    Add directories to your PATH.
+
+    ```nix
+    {
+      home.sessionPath = [
+        "$HOME/.local/bin"
+        "$HOME/.cargo/bin"
+      ];
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="xdg.nix - XDG directories">
+    Configure XDG Base Directory specification paths.
+
+    Sets standard locations for:
+    - `XDG_CONFIG_HOME` - Configuration files
+    - `XDG_DATA_HOME` - Data files
+    - `XDG_CACHE_HOME` - Cache files
+    - `XDG_STATE_HOME` - State files
+  </Accordion>
+</AccordionGroup>
+
+### themes/
+
+Visual theming and styling.
+
+<AccordionGroup>
+  <Accordion title="fonts.nix - Font configuration">
+    Configure fonts for your terminal and applications.
+
+    ```nix modules/home/themes/fonts.nix
+    {
+      garden.style.fonts = {
+        enable = true;
+        
+        name = "Maple Mono";
+        italic = "Maple Mono Italic";
+        bold = "Maple Mono Bold";
+        bold-italic = "Maple Mono Bold Italic";
+        
+        package = pkgs.maple-mono.truetype;
+        size = 14;
+      };
+    }
+    ```
+
+    This configuration:
+    - Sets the system font to Maple Mono
+    - Configures font variants (italic, bold, etc.)
+    - Installs the font package
+    - Sets default fallbacks (Symbols Nerd Font, Noto Sans)
+    - Works on both NixOS and Darwin
+  </Accordion>
+
+  <Accordion title="Color schemes and themes">
+    Visual themes that apply across applications.
+
+    The themes module integrates with:
+    - Terminal color schemes
+    - GTK/Qt themes
+    - Application-specific themes
+    - Catppuccin theme variants
+  </Accordion>
+</AccordionGroup>
+
+### Configuration modules
+
+<AccordionGroup>
+  <Accordion title="profiles.nix - Machine profiles">
+    Define profiles for different machine types.
+
+    ```nix modules/generic/profiles.nix
+    {
+      garden.profiles = {
+        graphical.enable = true;     # GUI applications
+        headless.enable = false;     # Server without GUI
+        workstation.enable = true;   # Development machine
+        laptop.enable = false;       # Laptop-specific settings
+        server.enable = false;       # Server-specific settings
+      };
+    }
+    ```
+
+    Profiles automatically enable appropriate modules based on machine type.
+  </Accordion>
+
+  <Accordion title="home.nix - Home Manager settings">
+    Core Home Manager configuration.
+
+    Sets:
+    - Home directory location
+    - State version for compatibility
+    - User information
+  </Accordion>
+
+  <Accordion title="secrets.nix - User secrets">
+    User-level secrets management with sops-nix.
+
+    Manage sensitive configuration:
+    - API keys
+    - SSH keys
+    - Application credentials
+    - Personal tokens
+  </Accordion>
+
+  <Accordion title="docs.nix - Disable documentation">
+    Disable Home Manager manual generation to save space.
+
+    ```nix
+    {
+      manual = {
+        html.enable = false;
+        json.enable = false;
+        manpages.enable = false;
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="extras.nix - External modules">
+    Import external Home Manager modules not part of the core framework.
+  </Accordion>
+</AccordionGroup>
+
+## Usage example
+
+Here's how you might configure your user environment:
+
+```nix home.nix
+{ inputs, pkgs, ... }:
+{
+  # Import the framework
+  imports = [ inputs.garden.homeManagerModules.default ];
+
+  # Machine profile
+  garden.profiles = {
+    graphical.enable = true;
+    workstation.enable = true;
+  };
+
+  # Program defaults
+  garden.programs.defaults = {
+    shell = "zsh";
+    terminal = "ghostty";
+    browser = "firefox";
+    editor = "nvim";
+  };
+
+  # Fonts
+  garden.style.fonts = {
+    name = "Maple Mono";
+    size = 14;
+  };
+
+  # Environment variables
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    TERMINAL = "ghostty";
+  };
+
+  # User packages
+  garden.packages = with pkgs; {
+    inherit ripgrep fd fzf;
+  };
+}
+```
+
+## Integrating with NixOS
+
+Home Manager can be used standalone or integrated with NixOS:
+
+### Standalone (works on any Linux or macOS)
+
+```bash
+home-manager switch --flake .
+```
+
+### Integrated with NixOS
+
+```nix configuration.nix
+{
+  imports = [ inputs.home-manager.nixosModules.home-manager ];
+
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    
+    users.isabel = import ./home.nix;
+  };
+}
+```
+
+### Integrated with nix-darwin
+
+```nix darwin-configuration.nix
+{
+  imports = [ inputs.home-manager.darwinModules.home-manager ];
+
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    
+    users.isabel = import ./home.nix;
+  };
+}
+```
+
+## Key features
+
+### Cross-platform compatibility
+
+Home Manager modules work on:
+- NixOS Linux
+- macOS with nix-darwin  
+- Any Linux distribution with Nix installed
+- WSL (Windows Subsystem for Linux)
+
+### Declarative dotfiles
+
+All your dotfiles are declared in Nix. When you switch configurations, dotfiles are automatically updated.
+
+### Profile system
+
+Profiles let you enable groups of related settings with a single option. Enable `graphical` profile to get a complete desktop environment configuration.
+
+### Theme integration
+
+The framework provides consistent theming across all applications using the Catppuccin color scheme by default.
+
+## Package installation
+
+Home Manager provides several ways to install packages:
+
+### Using garden.packages (recommended)
+
+```nix
+{
+  garden.packages = with pkgs; {
+    inherit git vim curl;
+  };
+}
+```
+
+This uses the framework's package management system, which works consistently across NixOS, Darwin, and Home Manager.
+
+### Using home.packages
+
+```nix
+{
+  home.packages = with pkgs; [
+    git
+    vim
+    curl
+  ];
+}
+```
+
+Standard Home Manager package list.
+
+### Using program modules
+
+```nix
+{
+  programs.git = {
+    enable = true;
+    userName = "Isabel";
+    userEmail = "isabel@example.com";
+  };
+}
+```
+
+Program-specific modules provide additional configuration options.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Generic modules" href="/reference/modules/generic" icon="gear">
+    Shared modules used by both Home Manager and system modules
+  </Card>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    Foundation modules for NixOS and Darwin
+  </Card>
+</CardGroup>

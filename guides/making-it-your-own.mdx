@@ -1,0 +1,182 @@
+---
+title: Making it your own
+description: Learn how to customize Isabel's Dotfiles for your personal use and adapt the configuration to your systems and preferences
+---
+
+Before you start customizing this configuration, please consider supporting the project:
+
+- [ko-fi](https://ko-fi.com/isabelroses)
+- [GitHub Sponsors](https://github.com/sponsors/isabelroses)
+- [Liberapay](https://liberapay.com/isabelroses)
+- [Patreon](https://www.patreon.com/isabelroses)
+
+<Warning>
+  This repository contains **personal** configurations that won't work out of the box without modifications. All secrets are encrypted and need to be replaced with your own.
+</Warning>
+
+## Customization workflow
+
+Follow these steps to adapt the configuration for your own use:
+
+<Steps>
+  <Step title="Rename the user">
+    The first step is to rename the default `isabel` user to your own username.
+
+    1. Edit `/modules/base/users/options.nix` and change the default user from `isabel` to your username:
+
+    ```nix modules/base/users/options.nix
+    users = mkOption {
+      type = listOf str;
+      default = [ "yourname" ]; # Change this
+      description = '''
+        A list of users that you wish to declare as your non-system users.
+      ''';
+    };
+    ```
+
+    2. Create your user configuration file at `/modules/base/users/<user>.nix` with your SSH key:
+
+    ```nix modules/base/users/yourname.nix
+    {
+      lib,
+      config,
+      ...
+    }:
+    let
+      inherit (lib) elem mkIf;
+    in
+    {
+      config = mkIf (elem "yourname" config.garden.system.users) {
+        users.users.yourname = {
+          openssh.authorizedKeys.keys = [
+            "ssh-ed25519 AAAA...your-key-here"
+          ];
+        };
+      };
+    }
+    ```
+
+    3. Add your hashed password to `/modules/nixos/users/<user>.nix`:
+
+    ```nix modules/nixos/users/yourname.nix
+    {
+      lib,
+      config,
+      ...
+    }:
+    let
+      inherit (lib) elem mkIf;
+    in
+    {
+      config = mkIf (elem "yourname" config.garden.system.users) {
+        users.users.yourname = {
+          hashedPassword = "$y$j9T$..."; # Generate with mkpasswd
+        };
+      };
+    }
+    ```
+
+    <Tip>
+      Generate a hashed password using `mkpasswd` command from the `mkpasswd` package.
+    </Tip>
+  </Step>
+
+  <Step title="Configure your system">
+    Find a host configuration that matches your hardware by reviewing the [systems architecture](/architecture/systems).
+
+    1. Rename the directory to your preferred hostname in `/systems/<hostname>`
+    2. Edit the system configuration to match your hardware
+    3. Update the home-manager users in the `users.nix` file:
+
+    ```nix systems/yoursystem/users.nix
+    {
+      garden.system = {
+        mainUser = "yourname";
+        users = [ "yourname" ];
+      };
+
+      # Add home-manager configuration for your user
+      home-manager.users.yourname.garden = {
+        # Your user-specific settings
+      };
+    }
+    ```
+
+    4. Register your system in `/systems/default.nix`:
+
+    ```nix systems/default.nix
+    hosts = {
+      yoursystem = {
+        # arch = "x86_64"; # or "aarch64"
+        # class = "nixos"; # or "darwin", "iso", "wsl"
+      };
+    };
+    ```
+  </Step>
+
+  <Step title="Set locale and timezone">
+    Edit `/modules/nixos/environment/locale.nix` to configure your timezone and locale:
+
+    ```nix modules/nixos/environment/locale.nix
+    {
+      time = {
+        timeZone = "America/New_York"; # Your timezone
+        hardwareClockInLocalTime = true;
+      };
+
+      i18n = {
+        defaultLocale = "en_US.UTF-8"; # Your locale
+
+        extraLocales = [
+          "en_US.UTF-8/UTF-8"
+        ];
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Remove unnecessary configurations">
+    This repository has a lot of personal configurations you may not need:
+
+    - Remove unused system configurations from `/systems/`
+    - Clean up service configurations in `/modules/nixos/services/` that you don't use
+    - Remove GUI applications you don't need from home-manager configurations
+    - Update the flake inputs to remove dependencies you won't use
+
+    <Warning>
+      Be careful when removing modules - some configurations may have dependencies on each other.
+    </Warning>
+  </Step>
+
+  <Step title="Configure secrets">
+    All secrets in the `/secrets/` directory are encrypted with sops-nix and won't work without your own keys.
+
+    See the [Secrets Management](/guides/secrets-management) guide for detailed instructions on setting up your own secrets.
+  </Step>
+</Steps>
+
+## What you get
+
+After customization, you'll have:
+
+- **Modular configuration** - Add or remove parts easily
+- **Sensible defaults** - Get started quickly with working configurations  
+- **Catppuccin theming** - Consistent aesthetics across all applications
+- **Modern tooling** - Up-to-date packages from nixpkgs-unstable
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Add systems" icon="server" href="/guides/adding-systems">
+    Configure additional machines
+  </Card>
+  <Card title="Add users" icon="user" href="/guides/adding-users">
+    Set up more user accounts
+  </Card>
+  <Card title="Manage secrets" icon="key" href="/guides/secrets-management">
+    Configure encrypted secrets
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Fix common issues
+  </Card>
+</CardGroup>

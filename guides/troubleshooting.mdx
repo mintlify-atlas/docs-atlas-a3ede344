@@ -1,0 +1,458 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when working with Isabel's Dotfiles and NixOS configurations
+---
+
+This guide covers common issues you might encounter when using or adapting this configuration, along with their solutions.
+
+## Build errors
+
+<AccordionGroup>
+  <Accordion title="Error: attribute 'something' missing">
+    **Symptom:**
+    ```
+    error: attribute 'xyz' missing
+    ```
+
+    **Common causes:**
+    - Referencing a user that doesn't exist in `garden.system.users`
+    - Missing module import
+    - Typo in attribute path
+
+    **Solution:**
+    1. Verify the attribute exists in your configuration
+    2. Check that all required modules are imported
+    3. Ensure users are declared in `modules/base/users/options.nix`
+  </Accordion>
+
+  <Accordion title="Error: infinite recursion">
+    **Symptom:**
+    ```
+    error: infinite recursion encountered
+    ```
+
+    **Common causes:**
+    - Circular module imports
+    - Self-referencing option definitions
+
+    **Solution:**
+    1. Check for circular imports in your module structure
+    2. Use `mkDefault`, `mkForce`, or `mkOverride` to break recursion
+    3. Review option definitions for self-references
+
+    ```nix
+    # Bad - causes recursion
+    services.foo.enable = config.services.foo.enable;
+
+    # Good - uses mkDefault
+    services.foo.enable = lib.mkDefault true;
+    ```
+  </Accordion>
+
+  <Accordion title="Error: collision between packages">
+    **Symptom:**
+    ```
+    error: collision between `package-a` and `package-b`
+    ```
+
+    **Cause:** Two packages provide the same binary or file.
+
+    **Solution:**
+    Use `lib.lowPrio` or remove one package:
+
+    ```nix
+    garden.packages = {
+      inherit (pkgs) package-a;
+      package-b-low = lib.lowPrio pkgs.package-b;
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Hash mismatch errors">
+    **Symptom:**
+    ```
+    error: hash mismatch in fixed-output derivation
+    ```
+
+    **Cause:** Flake lock is outdated or corrupted.
+
+    **Solution:**
+    ```bash
+    # Update flake inputs
+    nix flake update
+
+    # Or update specific input
+    nix flake lock --update-input nixpkgs
+
+    # Rebuild
+    sudo nixos-rebuild switch --flake .#yoursystem
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## System configuration issues
+
+<AccordionGroup>
+  <Accordion title="System doesn't boot after rebuild">
+    **Solution:**
+    1. Boot from a previous generation in GRUB
+    2. Check the system log:
+       ```bash
+       journalctl -xb
+       ```
+    3. Review recent changes:
+       ```bash
+       git diff HEAD~1
+       ```
+    4. Rebuild with the working configuration:
+       ```bash
+       sudo nixos-rebuild switch --flake .#yoursystem --rollback
+       ```
+  </Accordion>
+
+  <Accordion title="No users can log in">
+    **Symptom:** Cannot log in as any user after rebuild.
+
+    **Cause:** Users not properly configured or password issues.
+
+    **Solution:**
+    1. Boot into recovery mode or single-user mode
+    2. Verify user configuration:
+       ```nix
+       garden.system.users = [ "yourname" ];
+       ```
+    3. Reset password:
+       ```bash
+       # As root
+       passwd yourname
+       ```
+    4. Check that user files exist:
+       - `/modules/base/users/yourname.nix`
+       - `/modules/nixos/users/yourname.nix`
+  </Accordion>
+
+  <Accordion title="Network not working after boot">
+    **Solution:**
+    Check NetworkManager status:
+    ```bash
+    systemctl status NetworkManager
+    ```
+
+    Enable if disabled:
+    ```nix
+    networking.networkmanager.enable = true;
+    ```
+
+    For servers, configure static networking:
+    ```nix
+    networking = {
+      interfaces.eth0.ipv4.addresses = [{
+        address = "192.168.1.100";
+        prefixLength = 24;
+      }];
+      defaultGateway = "192.168.1.1";
+      nameservers = [ "8.8.8.8" "1.1.1.1" ];
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Secrets management issues
+
+<AccordionGroup>
+  <Accordion title="Error: no key could decrypt the data">
+    **Symptom:**
+    ```
+    Failed to get the data key required to decrypt the SOPS file.
+    ```
+
+    **Solution:**
+    1. Verify your age key exists:
+       ```bash
+       ls ~/.config/sops/age/keys.txt
+       ```
+
+    2. Check your key is in `.sops.yaml`:
+       ```bash
+       ssh-to-age < ~/.ssh/id_ed25519.pub
+       # Compare with .sops.yaml
+       ```
+
+    3. Update secret keys:
+       ```bash
+       sops updatekeys secrets/yourfile.yaml
+       ```
+  </Accordion>
+
+  <Accordion title="Secrets not available at runtime">
+    **Symptom:** Service fails because secret file doesn't exist.
+
+    **Solution:**
+    1. Verify secret is defined:
+       ```nix
+       sops.secrets.my-secret = {
+         sopsFile = ./secrets/file.yaml;
+       };
+       ```
+
+    2. Check secret path:
+       ```bash
+       # Secrets are in /run/secrets/ by default
+       ls -l /run/secrets/
+       ```
+
+    3. Verify permissions:
+       ```nix
+       sops.secrets.my-secret = {
+         owner = "myuser";
+         mode = "0400";
+       };
+       ```
+  </Accordion>
+
+  <Accordion title="Cannot edit secrets">
+    **Symptom:** `sops secrets/file.yaml` fails.
+
+    **Solution:**
+    1. Ensure sops is installed:
+       ```bash
+       nix-shell -p sops
+       ```
+
+    2. Set EDITOR environment variable:
+       ```bash
+       export EDITOR=nvim
+       sops secrets/file.yaml
+       ```
+
+    3. Check age key exists:
+       ```bash
+       ls ~/.config/sops/age/keys.txt
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## Home-manager issues
+
+<AccordionGroup>
+  <Accordion title="Home-manager activation fails">
+    **Symptom:**
+    ```
+    error: collision between ... and ...
+    ```
+
+    **Cause:** Conflicting home-manager configurations.
+
+    **Solution:**
+    1. Check for duplicate package definitions
+    2. Use `lib.mkForce` to override:
+       ```nix
+       programs.git.enable = lib.mkForce true;
+       ```
+    3. Remove conflicting manual installations
+  </Accordion>
+
+  <Accordion title="XDG directories not created">
+    **Solution:**
+    Ensure XDG is properly configured:
+
+    ```nix
+    xdg = {
+      enable = true;
+      userDirs = {
+        enable = true;
+        createDirectories = true;
+      };
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## macOS-specific issues
+
+<AccordionGroup>
+  <Accordion title="chmod error on /nix/store">
+    **Symptom:**
+    ```
+    error: chmod '/nix/store/...': Operation not permitted
+    ```
+
+    **Cause:** Nix doesn't have Full Disk Access on macOS.
+
+    **Solution:**
+    1. Open System Settings → Privacy & Security → Full Disk Access
+    2. Click the + button
+    3. Add `/nix` (or the nix daemon)
+    4. Run garbage collection again:
+       ```bash
+       nix store gc
+       ```
+
+    See also: [NixOS/nix#6765](https://github.com/NixOS/nix/issues/6765)
+  </Accordion>
+
+  <Accordion title="Darwin rebuild fails">
+    **Solution:**
+    1. Check nix-darwin is properly installed
+    2. Use the provision script:
+       ```bash
+       just provision yoursystem
+       ```
+    3. Check homebrew integration if using brew packages
+  </Accordion>
+</AccordionGroup>
+
+## Performance issues
+
+<AccordionGroup>
+  <Accordion title="Builds are very slow">
+    **Solutions:**
+
+    1. **Enable binary cache:**
+       ```nix
+       nix.settings = {
+         substituters = [
+           "https://cache.nixos.org"
+           "https://nix-community.cachix.org"
+         ];
+         trusted-public-keys = [
+           "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+           "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+         ];
+       };
+       ```
+
+    2. **Use more cores:**
+       ```nix
+       nix.settings = {
+         cores = 8;
+         max-jobs = 4;
+       };
+       ```
+
+    3. **Enable parallel building:**
+       ```bash
+       nixos-rebuild switch --flake .#yoursystem --cores 0
+       ```
+  </Accordion>
+
+  <Accordion title="Evaluation is slow">
+    **Solution:**
+    1. Reduce imported modules
+    2. Use `lib.mkDefault` instead of heavy conditionals
+    3. Avoid deep recursion in option definitions
+    4. Profile with:
+       ```bash
+       nix eval --show-trace .#nixosConfigurations.yoursystem.config.system.build.toplevel
+       ```
+  </Accordion>
+</AccordionGroup>
+
+## Debugging techniques
+
+### Enable trace messages
+
+```bash
+nixos-rebuild switch --flake .#yoursystem --show-trace
+```
+
+### Check what's being built
+
+```bash
+nixos-rebuild dry-build --flake .#yoursystem
+```
+
+### Inspect configuration
+
+```bash
+# View full configuration
+nix eval .#nixosConfigurations.yoursystem.config --json | jq
+
+# Check specific option
+nix eval .#nixosConfigurations.yoursystem.config.services.nginx.enable
+```
+
+### View build logs
+
+```bash
+# System logs
+journalctl -xe
+
+# Specific service
+journalctl -u nginx.service
+
+# Nix build logs
+nix log /nix/store/...-system
+```
+
+### Test in VM
+
+```bash
+# Build and run in VM
+nixos-rebuild build-vm --flake .#yoursystem
+./result/bin/run-*-vm
+```
+
+## Getting help
+
+If you're still stuck:
+
+<CardGroup cols={2}>
+  <Card title="NixOS Discourse" icon="message" href="https://discourse.nixos.org">
+    Community forum for questions and discussions
+  </Card>
+  <Card title="NixOS Wiki" icon="book" href="https://nixos.wiki">
+    Community-maintained documentation
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/isabelroses/dotfiles/issues">
+    Report issues specific to this repository
+  </Card>
+  <Card title="NixOS Manual" icon="file" href="https://nixos.org/manual/nixos/stable/">
+    Official NixOS documentation
+  </Card>
+</CardGroup>
+
+## Common debugging commands
+
+```bash
+# Check flake
+nix flake check
+
+# Update inputs
+nix flake update
+
+# Show flake info
+nix flake show
+
+# Evaluate configuration
+nix eval .#nixosConfigurations.yoursystem.config.system.build.toplevel
+
+# Check for evaluation errors
+nixos-rebuild dry-build --flake .#yoursystem --show-trace
+
+# View system generations
+sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
+
+# Garbage collect
+sudo nix-collect-garbage -d
+
+# Optimize store
+nix-store --optimize
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Making it your own" icon="wrench" href="/guides/making-it-your-own">
+    Customize the configuration
+  </Card>
+  <Card title="Adding systems" icon="server" href="/guides/adding-systems">
+    Set up new systems
+  </Card>
+  <Card title="Secrets management" icon="key" href="/guides/secrets-management">
+    Configure encrypted secrets
+  </Card>
+  <Card title="Architecture overview" icon="book" href="/architecture/overview">
+    Understand the architecture
+  </Card>
+</CardGroup>

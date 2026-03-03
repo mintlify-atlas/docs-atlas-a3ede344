@@ -1,0 +1,500 @@
+---
+title: System definitions
+description: How to configure individual hosts and manage system-specific settings
+---
+
+System definitions configure individual hosts using the easy-hosts framework. Each system combines the appropriate module class with host-specific configuration.
+
+## System registry
+
+All systems are registered in `systems/default.nix`:
+
+```nix
+{ self, inputs, ... }:
+{
+  imports = [ inputs.easy-hosts.flakeModule ];
+
+  config.easy-hosts = {
+    additionalClasses = {
+      wsl = "nixos";  # WSL is treated as a NixOS subclass
+    };
+
+    perClass = class: {
+      modules = [
+        # Import the class module with common configurations
+        "${self}/modules/${class}/default.nix"
+      ];
+    };
+
+    hosts = {
+      amaterasu = { };
+      
+      aphrodite = { };
+      
+      athena = { };
+      
+      lilith = {
+        class = "iso";
+      };
+      
+      skadi = {
+        arch = "aarch64";
+      };
+      
+      tatsumaki = {
+        arch = "aarch64";
+        class = "darwin";
+      };
+      
+      valkyrie = {
+        class = "wsl";
+      };
+    };
+  };
+}
+```
+
+### Host defaults
+
+Each host entry accepts these options:
+
+<ResponseField name="arch" type="string" default="x86_64">
+  System architecture. Use `"aarch64"` for ARM-based systems.
+</ResponseField>
+
+<ResponseField name="class" type="string" default="nixos">
+  System class determining which modules are loaded. Options: `"nixos"`, `"darwin"`, `"wsl"`, `"iso"`
+</ResponseField>
+
+<ResponseField name="modules" type="list" default="[]">
+  Additional modules to import beyond the class defaults.
+</ResponseField>
+
+<ResponseField name="specialArgs" type="attrs" default="{}">
+  Special arguments passed to all modules for this host.
+</ResponseField>
+
+## Current systems
+
+The configuration currently manages these systems:
+
+<AccordionGroup>
+  <Accordion title="amaterasu - Desktop workstation">
+    **Type:** Desktop (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** isabel
+
+    A powerful desktop dual booting Windows 11. Configured with:
+    - Intel CPU and NVIDIA GPU
+    - Dual monitor setup (144Hz + standard)
+    - Secure boot with TPM
+    - Full graphical workstation environment
+  </Accordion>
+  
+  <Accordion title="athena - Legacy laptop">
+    **Type:** Hybrid (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** isabel
+
+    The oldest laptop in the fleet. Still supported by the flake but barely in use.
+  </Accordion>
+  
+  <Accordion title="aphrodite - Cloud server">
+    **Type:** Server (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** isabel
+
+    Hosts most tgirl.cloud services.
+  </Accordion>
+  
+  <Accordion title="minerva - Personal server">
+    **Type:** Server (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** isabel
+
+    The original server, hosting most personal services.
+  </Accordion>
+  
+  <Accordion title="skadi - Oracle server">
+    **Type:** Server (NixOS)  
+    **Architecture:** aarch64  
+    **Main user:** isabel
+
+    Oracle free tier server. Used for PDS and aarch64 builds.
+  </Accordion>
+  
+  <Accordion title="tatsumaki - MacBook Air">
+    **Type:** Laptop (macOS)  
+    **Architecture:** aarch64  
+    **Main user:** isabel
+
+    University-provided MacBook Air, primarily used at university.
+  </Accordion>
+  
+  <Accordion title="valkyrie - WSL instance">
+    **Type:** WSL2 (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** isabel
+
+    WSL2 instance installed on amaterasu for Windows integration.
+  </Accordion>
+  
+  <Accordion title="lilith - Installation ISO">
+    **Type:** ISO image (NixOS)  
+    **Architecture:** x86_64  
+    **Main user:** n/a
+
+    Bootable ISO image for installing NixOS on new systems.
+  </Accordion>
+</AccordionGroup>
+
+## Host configuration
+
+Each host has a directory in `systems/` containing host-specific configuration:
+
+```
+systems/
+├── default.nix           # Host registry
+├── amaterasu/
+│   ├── default.nix       # Host configuration
+│   ├── hardware.nix      # Hardware configuration
+│   └── users.nix         # User configuration
+├── tatsumaki/
+│   └── default.nix
+└── ...
+```
+
+### Example host configuration
+
+Here's the configuration for `amaterasu`:
+
+```nix
+# systems/amaterasu/default.nix
+{
+  imports = [
+    ./hardware.nix
+    ./users.nix
+  ];
+
+  garden = {
+    profiles = {
+      graphical.enable = true;
+      workstation.enable = true;
+    };
+
+    device = {
+      cpu = "intel";
+      gpu = "nvidia";
+      monitors = {
+        DP-1.refresh-rate = 144;
+        DP-2 = { };
+      };
+      capabilities = {
+        tpm = true;
+        bluetooth = true;
+        yubikey = true;
+      };
+      keyboard = "us";
+    };
+
+    system = {
+      boot = {
+        loader = "systemd-boot";
+        secureBoot = true;
+        enableKernelTweaks = true;
+        loadRecommendedModules = true;
+
+        initrd = {
+          enableTweaks = true;
+          optimizeCompressor = true;
+        };
+      };
+
+      bluetooth.enable = true;
+      printing.enable = false;
+      emulation.enable = true;
+    };
+  };
+}
+```
+
+## Configuration structure
+
+Host configurations use the `garden.*` namespace for all custom options:
+
+### Profiles
+
+Profiles enable high-level feature sets:
+
+```nix
+garden.profiles = {
+  graphical.enable = true;      # Desktop environment
+  workstation.enable = true;    # Development tools
+  laptop.enable = true;         # Laptop-specific settings
+  server.enable = true;         # Server configuration
+  headless.enable = true;       # No GUI
+};
+```
+
+<Note>
+  Profiles are mutually exclusive in some cases. For example, `graphical` and `headless` shouldn't both be enabled.
+</Note>
+
+### Device configuration
+
+Hardware-specific settings:
+
+```nix
+garden.device = {
+  cpu = "intel";        # or "amd"
+  gpu = "nvidia";       # or "amd", "intel"
+  
+  monitors = {
+    DP-1 = {
+      refresh-rate = 144;
+      resolution = "2560x1440";
+    };
+    HDMI-1 = { };
+  };
+  
+  capabilities = {
+    tpm = true;
+    bluetooth = true;
+    yubikey = true;
+  };
+  
+  keyboard = "us";      # Keyboard layout
+};
+```
+
+### System configuration
+
+System-level settings:
+
+```nix
+garden.system = {
+  # User management
+  users = [ "isabel" ];
+  mainUser = "isabel";
+  
+  # Boot configuration
+  boot = {
+    loader = "systemd-boot";  # or "grub"
+    secureBoot = true;
+    enableKernelTweaks = true;
+  };
+  
+  # Services
+  bluetooth.enable = true;
+  printing.enable = true;
+  emulation.enable = true;
+};
+```
+
+## Hardware configuration
+
+Hardware-specific configuration is typically in a separate `hardware.nix` file:
+
+```nix
+# systems/amaterasu/hardware.nix
+{
+  boot.initrd.availableKernelModules = [
+    "xhci_pci"
+    "ahci"
+    "nvme"
+    "usbhid"
+    "usb_storage"
+    "sd_mod"
+  ];
+
+  fileSystems."/" = {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+  };
+
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/boot";
+    fsType = "vfat";
+  };
+
+  networking.hostName = "amaterasu";
+}
+```
+
+<Tip>
+  Use `nixos-generate-config` to create an initial `hardware-configuration.nix` on new systems, then integrate it into your host configuration.
+</Tip>
+
+## User configuration
+
+Host-specific user settings:
+
+```nix
+# systems/amaterasu/users.nix
+{ pkgs, ... }:
+{
+  users.users.isabel = {
+    isNormalUser = true;
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "docker"
+      "libvirtd"
+    ];
+    shell = pkgs.zsh;
+  };
+
+  # Home Manager configuration
+  home-manager.users.isabel = {
+    # User-specific home configuration
+  };
+}
+```
+
+## Adding a new system
+
+To add a new system to the configuration:
+
+<Steps>
+  <Step title="Register the host">
+    Add an entry to `systems/default.nix`:
+
+    ```nix
+    hosts = {
+      mynewhost = {
+        class = "nixos";  # or darwin, wsl, iso
+        arch = "x86_64";  # or aarch64
+      };
+      # ... existing hosts
+    };
+    ```
+  </Step>
+  
+  <Step title="Create host directory">
+    Create a directory for host-specific configuration:
+
+    ```bash
+    mkdir systems/mynewhost
+    ```
+  </Step>
+  
+  <Step title="Write configuration">
+    Create `systems/mynewhost/default.nix`:
+
+    ```nix
+    {
+      imports = [
+        ./hardware.nix
+      ];
+
+      garden = {
+        profiles.server.enable = true;
+        
+        device = {
+          cpu = "amd";
+          capabilities.tpm = false;
+        };
+        
+        system.users = [ "isabel" ];
+      };
+    }
+    ```
+  </Step>
+  
+  <Step title="Add hardware configuration">
+    Create `systems/mynewhost/hardware.nix` with hardware-specific settings.
+  </Step>
+  
+  <Step title="Build and deploy">
+    Build the configuration:
+
+    ```bash
+    nixos-rebuild switch --flake .#mynewhost
+    ```
+  </Step>
+</Steps>
+
+## System classes
+
+Different system classes have different capabilities:
+
+<CardGroup cols={2}>
+  <Card title="nixos" icon="linux">
+    **Full NixOS systems**
+    
+    Complete NixOS configuration with all modules available. Used for desktops, laptops, and servers.
+  </Card>
+  
+  <Card title="darwin" icon="apple">
+    **macOS systems**
+    
+    macOS configuration using nix-darwin. Supports Homebrew integration and macOS-specific settings.
+  </Card>
+  
+  <Card title="wsl" icon="windows">
+    **WSL2 instances**
+    
+    NixOS on WSL2. Treated as a nixos subclass with WSL-specific modules for Windows integration.
+  </Card>
+  
+  <Card title="iso" icon="compact-disc">
+    **Installation images**
+    
+    Bootable ISO images for installing NixOS. Includes installer tools and minimal configuration.
+  </Card>
+</CardGroup>
+
+## Class-specific modules
+
+The `perClass` function in `systems/default.nix` determines which modules are loaded:
+
+```nix
+perClass = class: {
+  modules = [
+    "${self}/modules/${class}/default.nix"
+  ];
+};
+```
+
+This means:
+- `class = "nixos"` → loads `modules/nixos/default.nix`
+- `class = "darwin"` → loads `modules/darwin/default.nix`  
+- `class = "wsl"` → loads `modules/wsl/default.nix` (but inherits from nixos)
+- `class = "iso"` → loads `modules/iso/default.nix`
+
+## Multi-architecture support
+
+The framework supports both x86_64 and aarch64:
+
+```nix
+hosts = {
+  # x86_64 (default)
+  amaterasu = { };
+  
+  # aarch64 systems
+  tatsumaki = {
+    arch = "aarch64";
+    class = "darwin";
+  };
+  
+  skadi = {
+    arch = "aarch64";
+  };
+};
+```
+
+The architecture affects:
+- Which packages are available
+- How the system is built
+- Cross-compilation requirements
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Module system" icon="puzzle-piece" href="/architecture/modules">
+    Learn about the module system and how to extend it
+  </Card>
+  <Card title="Architecture overview" icon="diagram-project" href="/architecture/overview">
+    Review the overall architecture
+  </Card>
+</CardGroup>

@@ -1,0 +1,385 @@
+---
+title: Adding packages
+description: Install and manage packages at the user and system level using the garden.packages attribute
+---
+
+This flake uses a custom `garden.packages` attribute instead of the traditional `environment.systemPackages` or `home.packages`. This approach prevents duplicate package listings and simplifies package management across both NixOS and home-manager configurations.
+
+## The garden.packages pattern
+
+Instead of separate lists for system and user packages, you define packages once in an attribute set:
+
+```nix
+garden.packages = {
+  inherit (pkgs) git neovim ripgrep;
+  
+  wrapped-nvim = pkgs.symlinkJoin {
+    name = "wrapped-nvim";
+    paths = [ pkgs.nvim pkgs.astro-language-server ];
+  };
+};
+```
+
+<Accordion title="Why use an attribute set instead of a list?">
+  Using an attribute set for packages provides several benefits:
+  
+  - **No duplicates** - Each package name can only appear once
+  - **Better composition** - Easy to merge package sets from different modules
+  - **Named packages** - Clear what each package is for
+  - **Custom packages** - Define wrapped or modified packages inline
+</Accordion>
+
+## Adding packages to your user
+
+<Steps>
+  <Step title="Create or edit your user's packages.nix">
+    Create or edit `/home/<user>/packages.nix`:
+
+    ```nix home/yourname/packages.nix
+    { pkgs, ... }:
+    {
+      garden.packages = {
+        # Simple packages
+        inherit (pkgs)
+          git
+          neovim
+          ripgrep
+          fd
+          bat
+          eza
+          ;
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Import in your user configuration">
+    Ensure `packages.nix` is imported in `/home/<user>/default.nix`:
+
+    ```nix home/yourname/default.nix
+    {
+      imports = [
+        ./packages.nix
+        ./cli
+        ./gui
+      ];
+    }
+    ```
+  </Step>
+</Steps>
+
+## Conditional packages
+
+You can conditionally include packages based on profiles or platform:
+
+```nix
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
+let
+  inherit (lib) optionalAttrs mergeAttrsList;
+  inherit (pkgs.stdenv.hostPlatform) isLinux isDarwin;
+
+  cfg = config.garden.profiles;
+in
+{
+  garden.packages = mergeAttrsList [
+    # Always installed
+    {
+      inherit (pkgs) git jq;
+    }
+
+    # Only on workstation profile
+    (optionalAttrs cfg.workstation.enable {
+      inherit (pkgs)
+        just
+        nix-output-monitor
+        ripgrep
+        ;
+    })
+
+    # Only on Linux
+    (optionalAttrs isLinux {
+      inherit (pkgs)
+        brightnessctl
+        wl-clipboard-rs
+        ;
+    })
+
+    # Only on macOS
+    (optionalAttrs isDarwin {
+      inherit (pkgs)
+        darwin.trash
+        ;
+    })
+  ];
+}
+```
+
+## Custom and wrapped packages
+
+You can define custom packages or wrap existing ones:
+
+<CodeGroup>
+```nix Wrapped package
+{
+  pkgs,
+  ...
+}:
+{
+  garden.packages = {
+    # Neovim with language servers
+    nvim-wrapped = pkgs.symlinkJoin {
+      name = "nvim-wrapped";
+      paths = [
+        pkgs.neovim
+        pkgs.lua-language-server
+        pkgs.nil # Nix LSP
+      ];
+    };
+  };
+}
+```
+
+```nix Package from overlay
+{
+  pkgs,
+  inputs',
+  ...
+}:
+{
+  garden.packages = {
+    # Package from your own overlay
+    inherit (pkgs) my-custom-package;
+
+    # Package from another flake input
+    inherit (inputs'.tgirlpkgs.packages) zzz;
+  };
+}
+```
+
+```nix Modified package
+{
+  pkgs,
+  ...
+}:
+{
+  garden.packages = {
+    # Override package attributes
+    git-custom = pkgs.git.override {
+      withLibsecret = true;
+      guiSupport = false;
+    };
+  };
+}
+```
+</CodeGroup>
+
+## Real-world examples
+
+### Workstation packages
+
+From `home/isabel/packages.nix`:
+
+```nix home/isabel/packages.nix
+{
+  lib,
+  pkgs,
+  config,
+  inputs',
+  ...
+}:
+let
+  inherit (lib) optionalAttrs mergeAttrsList;
+  inherit (pkgs.stdenv.hostPlatform) isLinux;
+
+  cfg = config.garden.profiles;
+in
+{
+  garden.packages = mergeAttrsList [
+    (optionalAttrs cfg.workstation.enable {
+      inherit (pkgs)
+        glow              # Fancy markdown renderer
+        jq                # JSON parser
+        just              # Command runner
+        nix-output-monitor # Better nix build output
+        rsync
+        unzip
+        wakatime-cli
+        yq                # YAML parser
+        ;
+
+      inherit (inputs'.tgirlpkgs.packages) zzz; # Code snippets
+    })
+
+    (optionalAttrs (cfg.graphical.enable && isLinux) {
+      inherit (pkgs)
+        brightnessctl     # Brightness control
+        grim              # Screenshot tool
+        libnotify         # Notifications
+        pwvucontrol       # PipeWire control
+        signal-desktop    # Messaging
+        slurp             # Screen area selection
+        swappy            # Screenshot editor
+        wl-clipboard-rs   # Wayland clipboard
+        wl-gammactl       # Display color temperature
+        ;
+
+      inherit (inputs'.tgirlpkgs.packages) cake-wallet;
+    })
+  ];
+}
+```
+
+### Development environment
+
+```nix home/yourname/packages.nix
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
+{
+  garden.packages = lib.mkIf config.garden.profiles.development.enable {
+    # Core development tools
+    inherit (pkgs)
+      git
+      gh              # GitHub CLI
+      lazygit         # TUI for git
+      direnv          # Per-directory environments
+      ;
+
+    # Language toolchains
+    inherit (pkgs)
+      rustup          # Rust
+      go              # Go
+      nodejs          # Node.js
+      python3         # Python
+      ;
+
+    # Build tools
+    inherit (pkgs)
+      gnumake
+      cmake
+      pkg-config
+      ;
+  };
+}
+```
+
+## System-level packages
+
+For system-wide packages (available to all users), use the same pattern in your system configuration:
+
+```nix systems/yoursystem/default.nix
+{
+  pkgs,
+  ...
+}:
+{
+  garden.packages = {
+    inherit (pkgs)
+      vim
+      wget
+      curl
+      htop
+      ;
+  };
+}
+```
+
+## Package organization tips
+
+<Steps>
+  <Step title="Group related packages">
+    Use comments to organize packages by category:
+
+    ```nix
+    garden.packages = {
+      # Shell utilities
+      inherit (pkgs) bat eza fd ripgrep zoxide;
+
+      # Network tools  
+      inherit (pkgs) curl wget rsync;
+
+      # Development
+      inherit (pkgs) git gh lazygit;
+    };
+    ```
+  </Step>
+
+  <Step title="Use keep-sorted for consistency">
+    The source repository uses `keep-sorted` comments:
+
+    ```nix
+    inherit (pkgs)
+      # keep-sorted start
+      bat
+      eza
+      fd
+      ripgrep
+      # keep-sorted end
+      ;
+    ```
+  </Step>
+
+  <Step title="Split by profile">
+    Create separate package modules for different use cases:
+
+    ```
+    home/yourname/
+    ├── packages/
+    │   ├── default.nix       # Core packages
+    │   ├── development.nix   # Dev tools
+    │   ├── graphics.nix      # Creative apps
+    │   └── gaming.nix        # Games
+    └── default.nix
+    ```
+  </Step>
+</Steps>
+
+## Finding packages
+
+Search for packages in nixpkgs:
+
+<Tabs>
+  <Tab title="Web search">
+    Visit [search.nixos.org](https://search.nixos.org/packages) to browse available packages.
+  </Tab>
+  <Tab title="Command line">
+    ```bash
+    # Search for a package
+    nix search nixpkgs neovim
+
+    # Search with more detail
+    nix search nixpkgs --json neovim | jq
+    ```
+  </Tab>
+  <Tab title="Nix REPL">
+    ```bash
+    nix repl '<nixpkgs>'
+    nix-repl> :browse pkgs
+    ```
+  </Tab>
+</Tabs>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Adding users" icon="user" href="/guides/adding-users">
+    Create users to install packages for
+  </Card>
+  <Card title="Adding systems" icon="server" href="/guides/adding-systems">
+    Configure systems with packages
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Fix package installation issues
+  </Card>
+  <Card title="Templates" icon="code" href="/guides/templates">
+    Use Nix flake templates
+  </Card>
+</CardGroup>

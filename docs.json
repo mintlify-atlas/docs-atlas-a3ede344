@@ -1,122 +1,110 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Isabel's Dotfiles",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#f5c2e7",
+    "light": "#a6e3a1",
+    "dark": "#fab387"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/isabelroses/dotfiles"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/isabelroses/dotfiles"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Architecture",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "architecture/overview",
+              "architecture/modules",
+              "architecture/systems"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Installation",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "installation/nixos",
+              "installation/macos",
+              "installation/wsl",
+              "installation/dual-boot"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/making-it-your-own",
+              "guides/adding-systems",
+              "guides/adding-users",
+              "guides/adding-packages",
+              "guides/secrets-management",
+              "guides/templates",
+              "guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/window-manager",
+              "configuration/lix",
+              "configuration/catppuccin",
+              "configuration/home-manager"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Modules",
             "pages": [
-              "api-reference/introduction"
+              "reference/modules/flake",
+              "reference/modules/nixos",
+              "reference/modules/darwin",
+              "reference/modules/home",
+              "reference/modules/base",
+              "reference/modules/generic"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Systems",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "reference/systems/amaterasu",
+              "reference/systems/aphrodite",
+              "reference/systems/athena",
+              "reference/systems/minerva",
+              "reference/systems/skadi",
+              "reference/systems/tatsumaki"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "reference/justfile-commands",
+              "reference/uninstalling",
+              "reference/mirrors"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

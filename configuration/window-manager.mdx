@@ -1,0 +1,272 @@
+---
+title: "Window manager"
+description: "Learn how to configure window managers in Isabel's Dotfiles"
+---
+
+Isabel's Dotfiles uses different window managers depending on the platform. On Linux, the configuration uses [fht-compositor](https://github.com/nferhat/fht-compositor), while on macOS it uses [AeroSpace](https://github.com/nikitabobko/AeroSpace).
+
+## Hyprland configuration
+
+While the documentation mentions fht-compositor, the actual implementation currently uses Hyprland as the Wayland compositor. The configuration can be found in `home/isabel/gui/hyprland.nix`.
+
+### Enabling Hyprland
+
+To enable Hyprland in your user configuration:
+
+```nix home/isabel/gui/hyprland.nix
+{
+  programs.hyprland.enable = true;
+}
+```
+
+### Key bindings
+
+The configuration includes a comprehensive set of keybindings for window management:
+
+<Tabs>
+  <Tab title="Launchers">
+    | Keybinding | Action |
+    |------------|--------|
+    | `SUPER + D` | Open launcher (vicinae) |
+    | `SUPER + B` | Open browser |
+    | `SUPER + E` | Open file manager |
+    | `SUPER + C` | Open editor |
+    | `SUPER + Return` | Open terminal |
+    | `SUPER + L` | Lock screen |
+    | `SUPER + O` | Open Obsidian |
+  </Tab>
+  <Tab title="Window management">
+    | Keybinding | Action |
+    |------------|--------|
+    | `SUPER + Q` | Kill active window |
+    | `SUPER + F` | Toggle fullscreen |
+    | `SUPER + Space` | Toggle floating |
+    | `SUPER + P` | Pseudo (dwindle) |
+    | `SUPER + S` | Toggle split (dwindle) |
+    | `SUPER + G` | Toggle group |
+    | `SUPER + Tab` | Change group active |
+  </Tab>
+  <Tab title="Workspaces">
+    | Keybinding | Action |
+    |------------|--------|
+    | `SUPER + [number]` | Switch to workspace [number] |
+    | `SUPER + SHIFT + [number]` | Move window to workspace [number] |
+    | `SUPER + grave` | Toggle special workspace |
+    | `SUPER + SHIFT + grave` | Move to special workspace |
+  </Tab>
+  <Tab title="Media & system">
+    | Keybinding | Action |
+    |------------|--------|
+    | `XF86AudioMute` | Toggle audio mute |
+    | `XF86AudioMicMute` | Toggle microphone mute |
+    | `XF86AudioRaiseVolume` | Increase volume |
+    | `XF86AudioLowerVolume` | Decrease volume |
+    | `XF86MonBrightnessUp` | Increase brightness |
+    | `XF86MonBrightnessDown` | Decrease brightness |
+    | `Print` | Screenshot (selection) |
+    | `SUPER + SHIFT + S` | Screenshot (selection) |
+  </Tab>
+</Tabs>
+
+### Submaps for movement and resize
+
+Hyprland uses submaps for more advanced window manipulation:
+
+<CodeGroup>
+
+```nix Move submap
+# Enter move mode with SUPER + M
+bind=SUPER, M, submap, move
+submap=move
+
+  binde = , left, movewindow, l
+  binde = , right, movewindow, r
+  binde = , up, movewindow, u
+  binde = , down, movewindow, d
+  # Vim-style navigation also supported
+  binde = , j, movewindow, l
+  binde = , l, movewindow, r
+  binde = , i, movewindow, u
+  binde = , k, movewindow, d
+
+  bind=,escape,submap,reset
+submap=reset
+```
+
+```nix Resize submap
+# Enter resize mode with SUPER + R
+bind=SUPER, R, submap, resize
+submap=resize
+
+  binde = , left, resizeactive, -20 0
+  binde = , right, resizeactive, 20 0
+  binde = , up, resizeactive, 0 -20
+  binde = , down, resizeactive, 0 20
+  # Vim-style navigation also supported
+  binde = , h, resizeactive, -20 0
+  binde = , j, resizeactive, 20 0
+  binde = , i, resizeactive, 0 -20
+  binde = , k, resizeactive, 0 20
+
+  bind=,escape,submap,reset
+submap=reset
+```
+
+</CodeGroup>
+
+## Visual customization
+
+The Hyprland configuration includes extensive visual customization:
+
+### Animations
+
+```nix home/isabel/gui/hyprland.nix
+animations = {
+  enabled = true;
+
+  bezier = [
+    "wind, 0.05, 0.9, 0.1, 1.05"
+    "winIn, 0.1, 1.1, 0.1, 1.1"
+    "winOut, 0.3, -0.3, 0, 1"
+    "liner, 1, 1, 1, 1"
+  ];
+  animation = [
+    "windows, 1, 6, wind, slide"
+    "windowsIn, 1, 6, winIn, slide"
+    "windowsOut, 1, 5, winOut, slide"
+    "windowsMove, 1, 5, wind, slide"
+    "border, 1, 1, liner"
+    "borderangle, 1, 30, liner, loop"
+    "fade, 1, 10, default"
+    "workspaces, 1, 5, wind"
+  ];
+};
+```
+
+### Decorations
+
+```nix home/isabel/gui/hyprland.nix
+decoration = {
+  rounding = 15;
+
+  active_opacity = 1.00;
+  inactive_opacity = 1.00;
+  fullscreen_opacity = 1.00;
+
+  shadow = {
+    enabled = true;
+    color = "rgb(11111B)";
+    color_inactive = "rgba(11111B00)";
+  };
+
+  blur = {
+    enabled = true;
+    passes = 2;
+    size = 2;
+    brightness = 1;
+    contrast = 1.3;
+    noise = 1.17e-2;
+    ignore_opacity = true;
+    new_optimizations = true;
+    xray = true;
+  };
+};
+```
+
+<Note>
+The blur and shadow effects use Catppuccin Mocha colors for a cohesive theme.
+</Note>
+
+### General layout
+
+```nix home/isabel/gui/hyprland.nix
+general = {
+  gaps_in = 8;
+  gaps_out = 8;
+  gaps_workspaces = 0;
+  border_size = 2;
+
+  "col.active_border" = "$pink";
+  "col.inactive_border" = "$surface1";
+};
+```
+
+## Monitor configuration
+
+The configuration includes dynamic monitor setup based on your system configuration:
+
+```nix home/isabel/gui/hyprland.nix
+mapMonitors = concatLines (
+  imap0 (
+    i: m:
+    "monitor=${m.name},${toString m.width}x${toString m.height}@${toString m.refresh-rate},${toString (i * 1920)}x0,${toString m.scale}"
+  ) (attrValues monitors)
+);
+```
+
+Workspaces are automatically distributed across monitors based on the device configuration.
+
+## Window rules
+
+Automatic window placement and behavior:
+
+```nix home/isabel/gui/hyprland.nix
+windowrule = [
+  "float on, match:title ^(nm-connection-editor)$"
+  "float on, match:title ^(Network)$"
+  "float on, match:title ^(xdg-desktop-portal-gtk)$"
+  "float on, match:class gay.vaskel.soteria"
+  "float on, match:title ^(Picture-in-Picture)$"
+  
+  "workspace 6, match:class discord"  # Discord on workspace 6
+  "workspace 7, match:class spotify"  # Spotify on workspace 7
+  
+  # Hide sharing indicators
+  "workspace special silent, match:title ^(Firefox — Sharing Indicator)$"
+  "workspace special silent, match:title ^(.*is sharing (your screen|a window).)$"
+];
+```
+
+## Input configuration
+
+The configuration automatically adapts input settings based on your keyboard layout:
+
+```nix home/isabel/gui/hyprland.nix
+input = {
+  kb_layout = keyboard;
+  follow_mouse = 1;
+  sensitivity = if keyboard == "us" then -0.8 else 0;
+  numlock_by_default = true;
+
+  touchpad = {
+    tap-to-click = true;
+    natural_scroll = false;
+    disable_while_typing = false;
+  };
+};
+```
+
+## Comparison with fht-compositor and AeroSpace
+
+While the current implementation uses Hyprland, the documentation references fht-compositor for Linux and AeroSpace for macOS. Here's a comparison of common keybindings:
+
+| SKHD (macOS) | fht-compositor | Hyprland | Action |
+|--------------|----------------|----------|--------|
+| `CMD+RETURN` | `SUPER+RETURN` | `SUPER+RETURN` | Open terminal |
+| - | `SUPER+B` | `SUPER+B` | Open browser |
+| `CMD+Q` | `SUPER+Q` | `SUPER+Q` | Quit window |
+| `CMD+D` | `SUPER+D` | `SUPER+D` | Launcher |
+| - | `SUPER+F` | `SUPER+F` | Full screen |
+| `CMD+CTRL+[number]` | `SUPER+[number]` | `SUPER+[number]` | Switch workspace |
+| `CMD+SHIFT+[number]` | `SUPER+SHIFT+[number]` | `SUPER+SHIFT+[number]` | Move to workspace |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Catppuccin theme" icon="palette" href="/configuration/catppuccin">
+    Learn how the Catppuccin theme integrates with your window manager
+  </Card>
+  <Card title="Home Manager" icon="house" href="/configuration/home-manager">
+    Understand how window manager configuration fits into Home Manager
+  </Card>
+</CardGroup>

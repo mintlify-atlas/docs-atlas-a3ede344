@@ -1,0 +1,320 @@
+---
+title: "Mirrors"
+description: "Official repository mirrors for Isabel's Dotfiles"
+---
+
+Isabel's Dotfiles is mirrored across multiple Git hosting platforms to ensure availability and provide alternative access methods. The primary development repository is on GitHub, with automatic synchronization to other platforms.
+
+## Official mirrors
+
+The configuration is available at the following locations:
+
+<CardGroup cols={2}>
+  <Card title="GitHub" icon="github" href="https://github.com/isabelroses/dotfiles">
+    **Primary repository**
+    
+    Main development location. All pull requests, issues, and discussions happen here.
+  </Card>
+
+  <Card title="GitLab" icon="gitlab" href="https://gitlab.com/isabelroses/dotfiles">
+    **Mirror**
+    
+    Synchronized mirror with the same commit history.
+  </Card>
+
+  <Card title="Codeberg" icon="git-alt" href="https://codeberg.org/isabel/dotfiles">
+    **Mirror**
+    
+    Community-focused Git hosting mirror.
+  </Card>
+
+  <Card title="Iztea" icon="server" href="https://git.isabelroses.com/isabel/dotfiles">
+    **Self-hosted mirror**
+    
+    Isabel's personal Git instance.
+  </Card>
+
+  <Card title="Tangled" icon="network-wired" href="https://tangled.org/@isabelroses.com/dotfiles">
+    **Tangled mirror**
+    
+    Alternative self-hosted mirror.
+  </Card>
+</CardGroup>
+
+## Cloning from mirrors
+
+You can clone the repository from any of the mirrors:
+
+<CodeGroup>
+```bash GitHub (primary)
+git clone https://github.com/isabelroses/dotfiles.git
+```
+
+```bash GitLab
+git clone https://gitlab.com/isabelroses/dotfiles.git
+```
+
+```bash Codeberg
+git clone https://codeberg.org/isabel/dotfiles.git
+```
+
+```bash Iztea
+git clone https://git.isabelroses.com/isabel/dotfiles.git
+```
+
+```bash Tangled
+git clone https://tangled.org/@isabelroses.com/dotfiles
+```
+</CodeGroup>
+
+<Tip>
+  All mirrors contain identical commit history. You can safely switch between them as remotes.
+</Tip>
+
+## Using Nix flakes with mirrors
+
+When referencing the dotfiles flake, you can use any of the mirrors:
+
+<CodeGroup>
+```nix GitHub (recommended)
+{
+  inputs.isabel-dotfiles.url = "github:isabelroses/dotfiles";
+}
+```
+
+```nix GitLab
+{
+  inputs.isabel-dotfiles.url = "gitlab:isabelroses/dotfiles";
+}
+```
+
+```nix Git URL
+{
+  inputs.isabel-dotfiles.url = "git+https://codeberg.org/isabel/dotfiles";
+}
+```
+</CodeGroup>
+
+<Note>
+  The GitHub mirror is recommended for Nix flakes as it benefits from GitHub's CDN and reliability.
+</Note>
+
+## Mirror synchronization
+
+Mirrors are synchronized using the `push-mirrors` just command, which pushes changes to all configured mirrors:
+
+```bash
+just push-mirrors
+```
+
+This command pushes to:
+- **GitLab**: Regular push to `main` branch
+- **Codeberg**: Mirror push (all refs)
+- **Tangled**: Mirror push (all refs)
+
+<Info>
+  Mirror synchronization is typically performed by the repository maintainer after merging changes to the main branch.
+</Info>
+
+## Switching remotes
+
+If you've cloned from one mirror and want to switch to another:
+
+<Steps>
+  <Step title="Check current remote">
+    ```bash
+    git remote -v
+    ```
+  </Step>
+
+  <Step title="Change the remote URL">
+    ```bash
+    # Switch to GitLab
+    git remote set-url origin https://gitlab.com/isabelroses/dotfiles.git
+
+    # Or switch to Codeberg
+    git remote set-url origin https://codeberg.org/isabel/dotfiles.git
+    ```
+  </Step>
+
+  <Step title="Verify the change">
+    ```bash
+    git remote -v
+    ```
+  </Step>
+
+  <Step title="Fetch from new remote">
+    ```bash
+    git fetch origin
+    ```
+  </Step>
+</Steps>
+
+## Adding multiple remotes
+
+You can configure multiple remotes to pull from different mirrors:
+
+```bash
+# Add GitLab as a secondary remote
+git remote add gitlab https://gitlab.com/isabelroses/dotfiles.git
+
+# Add Codeberg
+git remote add codeberg https://codeberg.org/isabel/dotfiles.git
+
+# Fetch from all remotes
+git fetch --all
+```
+
+This allows you to:
+- Compare commits across mirrors
+- Pull from a different mirror if one is unavailable
+- Verify mirror synchronization
+
+## Mirror status
+
+All mirrors should contain identical commits. To verify synchronization:
+
+```bash
+# Check commit hash on main branch
+git ls-remote https://github.com/isabelroses/dotfiles.git main
+git ls-remote https://gitlab.com/isabelroses/dotfiles.git main
+git ls-remote https://codeberg.org/isabel/dotfiles.git main
+```
+
+If the commit hashes match, the mirrors are synchronized.
+
+## Contributing
+
+<Warning>
+  Pull requests and issues should only be submitted to the **GitHub repository**. Other mirrors are read-only and do not accept contributions.
+</Warning>
+
+To contribute:
+
+1. Fork the [GitHub repository](https://github.com/isabelroses/dotfiles)
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request to the GitHub repository
+
+See the [Contributing guide](#) for more details.
+
+## Mirror implementation
+
+The mirror push is implemented in the justfile at `justfile:136-142`:
+
+```just
+# push to the mirrors
+[group('dev')]
+[no-exit-message]
+push-mirrors:
+    git push git@gitlab.com:isabelroses/dotfiles.git
+    git push --mirror ssh://git@codeberg.org/isabel/dotfiles.git
+    git push --mirror git@tangled.org:isabelroses.com/dotfiles
+```
+
+<Accordion title="Understanding the push commands">
+  - **GitLab**: Uses a standard `git push` which only pushes the current branch
+  - **Codeberg**: Uses `git push --mirror` which pushes all refs (branches, tags)
+  - **Tangled**: Uses `git push --mirror` for complete synchronization
+
+  The mirror push ensures that all branches, tags, and commits are replicated across platforms.
+</Accordion>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Why are there multiple mirrors?">
+    Multiple mirrors provide:
+    - **Redundancy**: If one platform experiences downtime, others remain available
+    - **Choice**: Users can choose their preferred Git hosting platform
+    - **Privacy**: Self-hosted mirrors offer alternatives to large platforms
+    - **Censorship resistance**: Distributed hosting makes the repository harder to take down
+  </Accordion>
+
+  <Accordion title="Which mirror should I use?">
+    For most users, the **GitHub mirror** is recommended because:
+    - It's the primary development location
+    - Pull requests and issues are handled there
+    - GitHub's infrastructure is highly reliable
+    - Better integration with Nix flake tooling
+
+    However, if you prefer community-run or self-hosted infrastructure, any mirror works equally well for read-only operations.
+  </Accordion>
+
+  <Accordion title="How often are mirrors synchronized?">
+    Mirrors are synchronized whenever changes are pushed to the main repository, typically:
+    - After merging pull requests
+    - After direct commits to main
+    - When running `just push-mirrors`
+
+    There is no automated scheduled synchronization. Mirrors are updated manually or as part of the development workflow.
+  </Accordion>
+
+  <Accordion title="Can I submit issues or PRs to mirrors?">
+    No. Only the **GitHub repository** accepts issues and pull requests. Mirrors are maintained for distribution and redundancy, not for collaborative development.
+
+    If you want to contribute, fork the GitHub repository and submit your pull request there.
+  </Accordion>
+
+  <Accordion title="What if a mirror is out of sync?">
+    If you notice a mirror is behind the main repository:
+    1. Check the commit hash on both repositories
+    2. Wait a few hours in case synchronization is in progress
+    3. If still out of sync after 24 hours, open an issue on the GitHub repository
+
+    Typically, mirrors are synchronized within minutes of changes being pushed to GitHub.
+  </Accordion>
+</AccordionGroup>
+
+## Technical details
+
+<Info>
+  The mirrors use SSH authentication for pushing. The `push-mirrors` command requires appropriate SSH keys configured for each platform.
+</Info>
+
+### SSH configuration
+
+To run `just push-mirrors` yourself, you need SSH keys set up for:
+
+```ssh ~/.ssh/config
+Host gitlab.com
+  HostName gitlab.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+
+Host codeberg.org
+  HostName codeberg.org
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+
+Host tangled.org
+  HostName tangled.org
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+### Automation
+
+While there's no automated CI/CD for mirror synchronization, you could set up GitHub Actions to automatically push to mirrors:
+
+```yaml .github/workflows/mirror.yml
+name: Mirror to platforms
+on:
+  push:
+    branches: [main]
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to mirrors
+        run: |
+          git push https://${{ secrets.GITLAB_TOKEN }}@gitlab.com/isabelroses/dotfiles.git
+          git push --mirror https://${{ secrets.CODEBERG_TOKEN }}@codeberg.org/isabel/dotfiles.git
+```
+
+<Note>
+  The above is an example. The actual repository may or may not use automated mirroring.
+</Note>

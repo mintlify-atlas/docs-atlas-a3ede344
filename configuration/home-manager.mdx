@@ -1,0 +1,494 @@
+---
+title: "Home Manager"
+description: "Manage user environments with Home Manager in Isabel's Dotfiles"
+---
+
+Home Manager is used to manage per-user configuration in Isabel's Dotfiles. It provides declarative configuration for user-level packages, dotfiles, and services.
+
+## What is Home Manager?
+
+Home Manager allows you to:
+
+- Install packages for specific users
+- Manage dotfiles and user configuration
+- Configure user services and daemons
+- Share configuration across NixOS and macOS
+
+<Note>
+Home Manager works on both NixOS and standalone Nix installations, making it perfect for cross-platform dotfiles.
+</Note>
+
+## Configuration structure
+
+Home Manager configuration is organized under the `home/` directory:
+
+```bash
+home/
+├── default.nix          # Main entry point
+└── isabel/              # User-specific configuration
+    ├── default.nix      # User imports
+    ├── packages.nix     # User packages
+    ├── cli/             # Command-line tools
+    ├── gui/             # Graphical applications
+    ├── tui/             # Terminal UI applications
+    ├── themes/          # Theme configuration
+    ├── services/        # User services
+    └── system/          # System integration
+```
+
+## Main configuration
+
+The root Home Manager configuration is in `home/default.nix`:
+
+```nix home/default.nix
+{
+  home-manager = {
+    verbose = true;
+    useUserPackages = true;
+    useGlobalPkgs = true;
+    backupFileExtension = "bak";
+
+    users = genAttrs config.garden.system.users (name: {
+      imports = [ ./${name} ];
+    });
+
+    extraSpecialArgs = {
+      inherit self self' inputs inputs';
+    };
+
+    # Define guaranteed common modules here
+    sharedModules = [ (self + /modules/home/default.nix) ];
+  };
+}
+```
+
+### Key settings
+
+<AccordionGroup>
+  <Accordion title="useUserPackages & useGlobalPkgs">
+    These options ensure Home Manager uses the same nixpkgs as the system configuration, providing consistency and reducing closure size.
+    
+    ```nix
+    useUserPackages = true;
+    useGlobalPkgs = true;
+    ```
+  </Accordion>
+  <Accordion title="backupFileExtension">
+    When Home Manager overwrites existing files, it creates backups with the `.bak` extension.
+    
+    ```nix
+    backupFileExtension = "bak";
+    ```
+  </Accordion>
+  <Accordion title="verbose">
+    Shows more detailed output during activation, useful for debugging.
+    
+    ```nix
+    verbose = true;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Shared modules
+
+The shared modules in `modules/home/default.nix` provide common functionality:
+
+```nix modules/home/default.nix
+{
+  _class = "homeManager";
+
+  imports = [
+    ../generic
+    ./docs.nix           # Documentation settings
+    ./environment        # Environment variables & PATH
+    ./extras.nix         # External modules
+    ./home.nix          # Home settings
+    ./profiles.nix      # Profile system
+    ./programs          # Program configurations
+    ./secrets.nix       # Secrets management
+    ./themes            # Theme system
+  ];
+}
+```
+
+## User structure
+
+Each user's configuration is organized by type:
+
+```nix home/isabel/default.nix
+{
+  imports = [
+    ./cli        # Command-line interface app configurations
+    ./gui        # Graphical interface app configurations
+    ./packages.nix  # Top-level list of packages
+    ./services   # System services, organized by display protocol
+    ./system     # Important system environment config
+    ./themes     # Application theming
+    ./tui        # Terminal interface app configurations
+  ];
+}
+```
+
+## CLI tools configuration
+
+Command-line tools are configured in `home/isabel/cli/`:
+
+```nix home/isabel/cli/default.nix
+{
+  imports = [
+    ./atuin.nix
+    ./bat.nix
+    ./direnv.nix
+    ./eza.nix
+    ./fd.nix
+    ./fzf.nix
+    ./gh.nix
+    ./git.nix
+    ./jj.nix
+    ./nix-your-shell.nix
+    ./ripgrep.nix
+    ./shell          # Shell configurations
+    ./starship.nix
+    ./zoxide.nix
+  ];
+}
+```
+
+### Example: Git configuration
+
+Here's how Git is configured in `home/isabel/cli/git.nix`:
+
+```nix home/isabel/cli/git.nix
+programs = {
+  git = {
+    inherit (config.garden.profiles.workstation) enable;
+    package = pkgs.gitMinimal;
+
+    # Git commit signing
+    signing = {
+      format = "ssh";
+      key = "${config.home.homeDirectory}/.ssh/id_ed25519.pub";
+      signByDefault = true;
+    };
+
+    settings = {
+      user = {
+        name = "isabel";
+        email = "isabel@isabelroses.com";
+      };
+
+      init.defaultBranch = "main";
+      
+      diff = {
+        algorithm = "histogram";  # A much better diff
+        colorMoved = "plain";     # Show moved lines in a different color
+      };
+
+      # Prune branches that are no longer on the remote
+      fetch.prune = true;
+
+      # If a remote does not have a branch that I have, create it
+      push.autoSetupRemote = true;
+    };
+  };
+};
+```
+
+## GUI applications
+
+Graphical applications are configured in `home/isabel/gui/`:
+
+```nix home/isabel/gui/default.nix
+{
+  imports = [
+    ./chromium.nix
+    ./discord.nix
+    ./ghostty.nix
+    ./hyprland.nix
+    ./media
+    ./notes.nix
+    ./quickshell.nix
+    ./vicinae
+    ./wezterm.nix
+  ];
+}
+```
+
+### Example: Hyprland configuration
+
+The window manager is configured through Home Manager:
+
+```nix home/isabel/gui/hyprland.nix
+{
+  options.programs.hyprland.enable = lib.mkEnableOption 
+    "Enable Hyprland as the Wayland window manager";
+
+  config = lib.mkIf config.programs.hyprland.enable {
+    garden.packages = { inherit (pkgs) hyprpicker cosmic-files; };
+
+    wayland.windowManager.hyprland = {
+      enable = true;
+      
+      package = null;  # Use system package
+      portalPackage = null;
+
+      systemd = {
+        enable = true;
+        variables = [ "--all" ];
+      };
+
+      settings = {
+        "$mod" = "SUPER";
+        # ... extensive configuration
+      };
+    };
+  };
+}
+```
+
+## Package management
+
+This configuration uses a custom `garden.packages` attribute instead of the traditional `home.packages`:
+
+```nix home/isabel/packages.nix
+{
+  garden.packages = {
+    inherit (pkgs) 
+      git
+      neovim
+      ripgrep;
+
+    wrapped-nvim = pkgs.symlinkJoin {
+      name = "wrapped-nvim";
+      paths = [ pkgs.nvim pkgs.astro-language-server ];
+    };
+  };
+}
+```
+
+<Note>
+Using `garden.packages` prevents duplicate package listings and makes module code cleaner. See the [Adding Packages guide](/guides/adding-packages) for more details.
+</Note>
+
+## Theming system
+
+Themes are managed through Home Manager in `home/isabel/themes/`:
+
+```nix home/isabel/themes/default.nix
+{
+  imports = [
+    ./catppuccin.nix  # Catppuccin theme integration
+    ./fonts.nix       # Font configuration
+    ./global.nix      # Global theme settings
+    ./gtk.nix         # GTK theming
+    ./qt.nix          # Qt theming
+  ];
+}
+```
+
+### Catppuccin integration
+
+```nix home/isabel/themes/catppuccin.nix
+{
+  imports = [ inputs.catppuccin.homeModules.catppuccin ];
+
+  config = {
+    catppuccin = {
+      inherit (config.garden.profiles.workstation) enable;
+      flavor = "mocha";
+      accent = "pink";
+
+      cursors.enable = isGui;
+      gtk.icon.enable = isGui;
+    };
+  };
+}
+```
+
+## Profile system
+
+Profiles control which features are enabled:
+
+```nix modules/home/profiles.nix
+{
+  options.garden.profiles.media = {
+    creation.enable = mkEnableOption "media creation profile";
+    streaming.enable = mkEnableOption "media streaming profile";
+    watching.enable = mkEnableOption "media watching profile" // {
+      default = config.garden.profiles.graphical.enable && osClass == "nixos";
+    };
+  };
+
+  config = {
+    garden.profiles = {
+      inherit (osConfig.garden.profiles)
+        graphical
+        headless
+        workstation
+        laptop
+        server;
+    };
+  };
+}
+```
+
+Profiles are inherited from the system configuration and can be extended with user-specific profiles.
+
+## Services
+
+User services are configured in `home/isabel/services/`:
+
+```nix home/isabel/services/default.nix
+{
+  imports = [
+    ./rnnoise.nix  # Noise suppression
+    ./tray.nix     # System tray
+  ];
+}
+```
+
+## Secrets management
+
+Secrets are managed through SOPS:
+
+```nix home/isabel/cli/git.nix
+sops.secrets.uni-gitconf = { };
+
+programs.git = {
+  includes = [
+    {
+      condition = "gitdir:~/dev/uni/";
+      inherit (config.sops.secrets."uni-gitconf") path;
+    }
+  ];
+};
+```
+
+<Warning>
+Never commit secrets directly to your repository. Always use SOPS or another secrets management solution.
+</Warning>
+
+## Cross-platform support
+
+Home Manager configuration works on both NixOS and macOS:
+
+```nix
+let
+  isGui = osClass == "nixos" && config.garden.profiles.graphical.enable;
+in
+{
+  # Enable features only on GUI systems
+  catppuccin.cursors.enable = isGui;
+  gtk.enable = isGui;
+}
+```
+
+The `osClass` variable is either `"nixos"` or `"darwin"`, allowing platform-specific configuration.
+
+## Activation
+
+Home Manager configurations are activated automatically when you rebuild your system:
+
+<CodeGroup>
+
+```bash NixOS
+sudo nixos-rebuild switch --flake ~/.config/flake#<host>
+```
+
+```bash macOS
+darwin-rebuild switch --flake ~/.config/flake#<host>
+```
+
+```bash Standalone
+home-manager switch --flake ~/.config/flake#<user>@<host>
+```
+
+</CodeGroup>
+
+## Advanced features
+
+### XDG directories
+
+Home Manager automatically configures XDG base directories:
+
+```nix
+xdg = {
+  enable = true;
+  configHome = "${config.home.homeDirectory}/.config";
+  dataHome = "${config.home.homeDirectory}/.local/share";
+  cacheHome = "${config.home.homeDirectory}/.cache";
+  stateHome = "${config.home.homeDirectory}/.local/state";
+};
+```
+
+### Session variables
+
+```nix
+home.sessionVariables = {
+  EDITOR = "nvim";
+  BROWSER = "chromium";
+  TERMINAL = "ghostty";
+};
+```
+
+### File management
+
+Home Manager can manage arbitrary files in your home directory:
+
+```nix
+home.file.".config/foo/config.toml".text = ''
+  [settings]
+  theme = "catppuccin"
+'';
+```
+
+## Troubleshooting
+
+### Backup files
+
+If you see `.bak` files, Home Manager created backups of conflicting files:
+
+```bash
+# Review backups
+find ~ -name "*.bak"
+
+# Remove backups after verifying
+find ~ -name "*.bak" -delete
+```
+
+### Activation failures
+
+If activation fails, check for file conflicts:
+
+```bash
+# Check what Home Manager would do
+home-manager build --flake ~/.config/flake#isabel@<host>
+
+# Review the diff
+ls -la ~/.local/state/home-manager/gcroots/current-home/
+```
+
+### Verbose output
+
+The configuration enables verbose mode by default, but you can increase verbosity:
+
+```bash
+home-manager switch --flake ~/.config/flake#isabel@<host> -v
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Adding Users" icon="user-plus" href="/guides/adding-users">
+    Create a new user configuration
+  </Card>
+  <Card title="Adding Packages" icon="box" href="/guides/adding-packages">
+    Add packages to your user profile
+  </Card>
+  <Card title="Catppuccin" icon="palette" href="/configuration/catppuccin">
+    Configure the Catppuccin theme
+  </Card>
+  <Card title="Secrets" icon="key" href="/guides/secrets-management">
+    Manage secrets with SOPS
+  </Card>
+</CardGroup>

@@ -1,0 +1,343 @@
+---
+title: "Justfile commands"
+description: "Complete reference for all available just commands in Isabel's Dotfiles"
+---
+
+Isabel's Dotfiles uses [just](https://github.com/casey/just) as a command runner to simplify common development and system management tasks. This page documents all available commands organized by their functional groups.
+
+<Info>
+  **Prerequisites**:
+  - `just` installed on your system
+  - You're in the dotfiles repository root directory
+</Info>
+
+## Quick reference
+
+Run `just` without arguments to see all available commands:
+
+```bash
+just
+```
+
+## Rebuild commands
+
+These commands rebuild your NixOS or nix-darwin system with the current configuration.
+
+<AccordionGroup>
+  <Accordion title="switch" icon="arrow-right-arrow-left">
+    Switch to the new system configuration immediately and make it the default for the next boot.
+
+    ```bash
+    just switch
+    ```
+
+    You can pass additional arguments to the underlying rebuild command:
+
+    ```bash
+    just switch --show-trace
+    ```
+
+    This command automatically shows a diff of what changed between the previous and new system configurations using `lix diff`.
+  </Accordion>
+
+  <Accordion title="boot" icon="power-off">
+    Make the new configuration the default for the next boot without switching to it immediately.
+
+    ```bash
+    just boot
+    ```
+
+    Useful when you want to apply changes on the next reboot without disrupting your current session.
+  </Accordion>
+
+  <Accordion title="test" icon="flask">
+    Test the new configuration by activating it in the current session, but don't make it the default for the next boot.
+
+    ```bash
+    just test
+    ```
+
+    Perfect for testing changes before committing to them. The configuration will revert on reboot.
+  </Accordion>
+
+  <Accordion title="deploy" icon="server">
+    Deploy a configuration to a remote host via SSH.
+
+    ```bash
+    just deploy <host> [args...]
+    ```
+
+    **Example:**
+    ```bash
+    just deploy minerva
+    just deploy athena --show-trace
+    ```
+
+    This command:
+    1. Captures the current system state on the remote host
+    2. Deploys the new configuration
+    3. Shows a diff of what changed
+
+    If the `DEPLOY_SUMMARY` environment variable is set, the diff output is appended to that file instead of being printed to stdout.
+  </Accordion>
+
+  <Accordion title="deploy-all" icon="globe">
+    Deploy configurations to all remote hosts in sequence.
+
+    ```bash
+    just deploy-all
+    ```
+
+    Deploys to the following hosts in order:
+    - minerva
+    - athena
+    - aphrodite
+    - skadi
+    - hephaestus
+    - isis
+
+    Generates a deployment summary at the end showing all changes across all hosts.
+  </Accordion>
+
+  <Accordion title="provision" icon="apple" defaultOpen={false}>
+    <Warning>macOS only</Warning>
+
+    Bootstrap a new macOS system with nix-darwin.
+
+    ```bash
+    just provision <host>
+    ```
+
+    **Example:**
+    ```bash
+    just provision valkyrie
+    ```
+
+    This command runs the initial nix-darwin setup and removes the non-declarative Lix installation.
+  </Accordion>
+</AccordionGroup>
+
+## Package commands
+
+Build system images and archives.
+
+<AccordionGroup>
+  <Accordion title="iso" icon="compact-disc">
+    Build an ISO installation image for a specified configuration.
+
+    ```bash
+    just iso <image>
+    ```
+
+    **Example:**
+    ```bash
+    just iso minerva
+    ```
+
+    The built ISO will be available in the `result` directory.
+  </Accordion>
+
+  <Accordion title="tar" icon="file-archive">
+    Build a tarball of a system configuration.
+
+    ```bash
+    just tar <host>
+    ```
+
+    **Example:**
+    ```bash
+    just tar athena
+    ```
+
+    Creates a complete system tarball that can be deployed to containers or minimal environments.
+  </Accordion>
+</AccordionGroup>
+
+## Development commands
+
+Tools for developing and maintaining the configuration.
+
+<AccordionGroup>
+  <Accordion title="check" icon="circle-check">
+    Check the flake for errors and evaluate all system configurations.
+
+    ```bash
+    just check
+    ```
+
+    Pass additional arguments to `nix flake check`:
+
+    ```bash
+    just check --show-trace
+    ```
+
+    <Note>
+      This command uses `--option allow-import-from-derivation false` to prevent expensive IFD operations during checks.
+    </Note>
+  </Accordion>
+
+  <Accordion title="repl-host" icon="terminal">
+    Open a Nix REPL with a specific host configuration loaded.
+
+    ```bash
+    just repl-host [host]
+    ```
+
+    **Examples:**
+    ```bash
+    just repl-host minerva
+    just repl-host  # Uses the current hostname
+    ```
+
+    Useful for inspecting configuration values and debugging.
+  </Accordion>
+
+  <Accordion title="update" icon="arrows-rotate">
+    Update flake inputs and commit the lock file.
+
+    ```bash
+    just update [input...]
+    ```
+
+    **Examples:**
+    ```bash
+    just update              # Update all inputs
+    just update nixpkgs      # Update only nixpkgs
+    just update nixpkgs home-manager  # Update multiple inputs
+    ```
+
+    This command:
+    1. Updates the specified inputs (or all if none specified)
+    2. Refreshes the flake
+    3. Creates a commit with a descriptive message
+  </Accordion>
+
+  <Accordion title="serve" icon="browser">
+    Build and serve the documentation site locally.
+
+    ```bash
+    just serve
+    ```
+
+    Opens a local development server to preview the documentation.
+  </Accordion>
+
+  <Accordion title="push-mirrors" icon="code-branch">
+    Push the repository to all configured mirrors.
+
+    ```bash
+    just push-mirrors
+    ```
+
+    Pushes to:
+    - GitLab (isabelroses/dotfiles)
+    - Codeberg (mirror)
+    - Tangled (mirror)
+
+    See the [Mirrors reference](/reference/mirrors) for more information.
+  </Accordion>
+
+  <Accordion title="rotate-secrets" icon="key">
+    Rotate all SOPS secrets in the repository.
+
+    ```bash
+    just rotate-secrets
+    ```
+
+    <Warning>
+      Note: The command contains a typo (`roate-secrets`) in the justfile. Use `just rotate-secrets` (with the typo) or `just roate-secrets`.
+    </Warning>
+
+    Finds all `*.yaml` files in the `secrets/` directory and rotates their encryption keys using `sops rotate`.
+  </Accordion>
+
+  <Accordion title="update-secrets" icon="shield">
+    Update secret keys for all encrypted files.
+
+    ```bash
+    just update-secrets
+    ```
+
+    Runs `sops updatekeys` on all YAML files in the `secrets/` directory to ensure they're encrypted with the current set of keys.
+  </Accordion>
+</AccordionGroup>
+
+## Utility commands
+
+System maintenance and troubleshooting utilities.
+
+<AccordionGroup>
+  <Accordion title="verify" icon="check-double">
+    Verify the integrity of the Nix store.
+
+    ```bash
+    just verify [args...]
+    ```
+
+    **Example:**
+    ```bash
+    just verify --check-contents
+    ```
+
+    Checks that all store paths are valid and haven't been corrupted.
+  </Accordion>
+
+  <Accordion title="repair" icon="wrench">
+    Verify and repair any broken paths in the Nix store.
+
+    ```bash
+    just repair
+    ```
+
+    Alias: `just fix`
+
+    This is equivalent to running `just verify --check-contents --repair`.
+  </Accordion>
+
+  <Accordion title="clean" icon="broom">
+    Clean up old generations and optimize the Nix store.
+
+    ```bash
+    just clean
+    ```
+
+    This command:
+    1. Deletes unused store paths older than 3 days
+    2. Optimizes the store by deduplicating identical files
+
+    <Tip>
+      Run this regularly to reclaim disk space, especially after system updates.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Environment variables
+
+You can customize just command behavior using environment variables:
+
+<CodeGroup>
+```bash FLAKE path
+# Use a different flake location
+FLAKE=/path/to/other/flake just switch
+```
+
+```bash Custom rebuild command
+# Override the rebuild command (advanced)
+rebuild="nixos-rebuild" just switch
+```
+</CodeGroup>
+
+## Platform detection
+
+The justfile automatically detects your platform (macOS vs. NixOS) and adjusts commands accordingly:
+
+- On macOS: Uses `darwin-rebuild` for system operations
+- On NixOS: Uses `nixos-rebuild` with sudo and reexec disabled
+
+<Note>
+  Some commands are platform-specific. The `provision` command, for example, only works on macOS.
+</Note>
+
+## Build output formatting
+
+All rebuild commands use [nix-output-monitor (nom)](https://github.com/maralorn/nix-output-monitor) to provide enhanced, colorful build output with progress tracking. This makes it easier to understand what's happening during long builds.

@@ -1,0 +1,329 @@
+---
+title: "Lix"
+description: "Configure Lix, the package manager powering Isabel's Dotfiles"
+---
+
+Isabel's Dotfiles uses [Lix](https://lix.systems), a fork of the Nix package manager with improved features and fixes. This configuration makes extensive use of Lix's experimental features and optimizations.
+
+## What is Lix?
+
+Lix is a modern fork of Nix that includes:
+
+- Bug fixes and performance improvements
+- New experimental features
+- Better error messages and diagnostics
+- Community-driven development
+
+You can track new features in the [Lix release notes](https://docs.lix.systems/manual/lix/nightly/release-notes/rl-next.html).
+
+## Package configuration
+
+The configuration uses Lix from the Git branch for the latest features:
+
+```nix modules/base/nix/nix.nix
+package = pkgs.lixPackageSets.git.lix;
+```
+
+<Note>
+**Important**: You cannot build `nix.exe` with Lix. This limitation is documented but rarely affects typical usage.
+</Note>
+
+## Experimental features
+
+The configuration enables several experimental Lix features:
+
+<Tabs>
+  <Tab title="Core features">
+    ```nix modules/base/nix/nix.nix
+    experimental-features = [
+      # Enables flakes, needed for this config
+      "flakes"
+
+      # Enables the nix3 commands, a requirement for flakes
+      "nix-command"
+
+      # Adds a new command called `lix` which allows you to run nix plugins,
+      # similar to how cargo works
+      "lix-custom-sub-commands"
+    ];
+    ```
+  </Tab>
+  <Tab title="Advanced features">
+    ```nix modules/base/nix/nix.nix
+    experimental-features = [
+      # Allows Nix to automatically pick UIDs for builds, rather than creating
+      # nixbld* user accounts which is BEYOND annoying
+      "auto-allocate-uids"
+
+      # Allow usage of the pipe operator in nix expressions
+      "pipe-operator"
+
+      # Allow nix to automatically coerce integers to strings
+      "coerce-integers"
+    ];
+    ```
+  </Tab>
+</Tabs>
+
+### Feature highlights
+
+<CardGroup cols={2}>
+  <Card title="Flakes" icon="box">
+    Modern, reproducible package and configuration management
+  </Card>
+  <Card title="Pipe operator" icon="arrows-left-right">
+    Write more readable Nix expressions with pipeline syntax
+  </Card>
+  <Card title="Auto-allocate UIDs" icon="users">
+    No more manual nixbld user management
+  </Card>
+  <Card title="Custom sub-commands" icon="terminal">
+    Extend Lix with plugin-style commands
+  </Card>
+</CardGroup>
+
+## Store optimization
+
+Lix includes a fix for auto-optimise-store that allows safe usage:
+
+```nix modules/base/nix/nix.nix
+# Automatically optimise symlinks
+# Disable auto-optimise-store because of this issue:
+# https://github.com/NixOS/nix/issues/7273
+# but we use lix which has a fix for this issue:
+# https://gerrit.lix.systems/c/lix/+/2100
+auto-optimise-store = true;
+```
+
+<Warning>
+This feature was broken in upstream Nix but is safe to use in Lix due to [this patch](https://gerrit.lix.systems/c/lix/+/2100).
+</Warning>
+
+## Garbage collection
+
+Automatic cleanup keeps your system lean:
+
+```nix modules/base/nix/nix.nix
+# Set up garbage collection to run automatically,
+# removing packages after 3 days
+gc = {
+  automatic = true;
+  options = "--delete-older-than 3d";
+};
+```
+
+## Storage management
+
+Intelligent free space management:
+
+```nix modules/base/nix/nix.nix
+# Free up to 20GiB whenever there is less than 5GB left.
+# This setting is in bytes, so we multiply with 1024 by 3
+min-free = 5 * 1024 * 1024 * 1024;
+max-free = 20 * 1024 * 1024 * 1024;
+```
+
+When disk space drops below 5GB, Lix automatically frees up to 20GB by removing old store paths.
+
+## Registry and flake configuration
+
+The configuration pins the registry to avoid unnecessary network requests:
+
+```nix modules/base/nix/nix.nix
+# Pin the registry to avoid downloading and evaluating a new nixpkgs
+# version everytime
+registry = (mapAttrs (_: flake: { inherit flake; }) flakeInputs) // {
+  nixpkgs = lib.mkForce { flake = inputs.nixpkgs; };
+};
+
+# We don't want to track the registry, but we do want to allow the usage
+# of the `flake:` references, so we need to enable use-registries
+use-registries = true;
+flake-registry = "";
+```
+
+### Disable channels
+
+Channels are disabled in favor of flakes:
+
+```nix modules/base/nix/nix.nix
+# Disable usage of nix channels
+channel.enable = false;
+```
+
+## Build settings
+
+### Parallel builds
+
+```nix modules/base/nix/nix.nix
+# Let the system decide the number of max jobs
+max-jobs = "auto";
+```
+
+### Keep building on failure
+
+```nix modules/base/nix/nix.nix
+# Continue building derivations even if one fails
+# This is important for keeping a nice cache of derivations
+keep-going = true;
+
+# Show more log lines for failed builds
+log-lines = 30;
+```
+
+### Sandboxing
+
+```nix modules/base/nix/nix.nix
+# Build inside sandboxed environments
+# We only enable this on Linux because it severely breaks on Darwin
+sandbox = pkgs.stdenv.hostPlatform.isLinux;
+```
+
+### System features
+
+```nix modules/base/nix/nix.nix
+system-features = [
+  "nixos-test"
+  "kvm"
+  "recursive-nix"
+  "big-parallel"
+];
+```
+
+## Security settings
+
+### Flake config acceptance
+
+```nix modules/base/nix/nix.nix
+# Whether to accept nix configuration from a flake without prompting
+# Literally a CVE waiting to happen
+accept-flake-config = false;
+```
+
+<Warning>
+Accepting flake configs automatically is a security risk. This configuration requires manual approval.
+</Warning>
+
+### File system checks
+
+```nix modules/base/nix/nix.nix
+# Prevent data corruption
+transfer.fsckObjects = true;
+fetch.fsckObjects = true;
+receive.fsckObjects = true;
+```
+
+## XDG base directories
+
+Lix follows the XDG Base Directory specification:
+
+```nix modules/base/nix/nix.nix
+# Use XDG base directories for all the nix things
+use-xdg-base-directories = true;
+```
+
+This keeps your home directory clean by storing Nix files in `~/.local/share/nix`, `~/.cache/nix`, etc.
+
+## Development features
+
+### Import from derivation
+
+```nix modules/base/nix/nix.nix
+# This defaults to true, however it slows down evaluation
+# We do need it for catppuccin/nix so we keep it enabled
+allow-import-from-derivation = true;
+```
+
+### Direnv support
+
+```nix modules/base/nix/nix.nix
+# For direnv GC roots
+keep-derivations = true;
+keep-outputs = true;
+```
+
+These settings prevent garbage collection from removing dependencies needed by direnv environments.
+
+## Network optimization
+
+```nix modules/base/nix/nix.nix
+# Maximum number of parallel TCP connections used to fetch imports
+# and binary caches, 0 means no limit
+http-connections = 50;
+```
+
+## Substituters and caches
+
+The configuration uses multiple binary caches for faster builds:
+
+```nix modules/base/nix/substituters.nix
+substituters = [
+  "https://nix-community.cachix.org"
+]
+++ optionals hasCtp [
+  "https://catppuccin.cachix.org"
+];
+
+trusted-public-keys = [
+  "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+]
+++ optionals hasCtp [
+  "catppuccin.cachix.org-1:noG/4HkbhJb+lUAdKrph6LaozJvAeEEZj4N732IysmU="
+];
+```
+
+<Note>
+The `cache.nixos.org` substituter is added by default and doesn't need to be specified.
+</Note>
+
+## Quality of life settings
+
+```nix modules/base/nix/nix.nix
+# Don't warn me if the current working tree is dirty
+# I don't need the warning because I'm working on it right now
+warn-dirty = false;
+```
+
+## Permission management
+
+```nix modules/base/nix/nix.nix
+let
+  sudoers = if (_class == "nixos") then "@wheel" else "@admin";
+in
+{
+  # Users or groups which are allowed to do anything with the Nix daemon
+  allowed-users = [ sudoers ];
+  # Users or groups which are allowed to manage the nix store
+  trusted-users = [ sudoers ];
+}
+```
+
+Permissions adapt based on whether you're running NixOS or Darwin (macOS).
+
+## Installation
+
+To install Lix on a new system:
+
+<CodeGroup>
+
+```bash macOS
+curl -sSf -L https://install.lix.systems/lix | sh -s -- install
+```
+
+```bash NixOS
+# Lix is installed automatically through the flake configuration
+nix build .#images.lilith
+```
+
+</CodeGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Home Manager" icon="house" href="/configuration/home-manager">
+    Learn how Home Manager integrates with Lix
+  </Card>
+  <Card title="Adding packages" icon="box" href="/guides/adding-packages">
+    Add packages to your configuration
+  </Card>
+</CardGroup>

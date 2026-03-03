@@ -1,0 +1,346 @@
+---
+title: Install on macOS
+description: Install Isabel's Dotfiles on macOS using nix-darwin and Homebrew
+---
+
+This guide covers installing Isabel's Dotfiles on macOS using [nix-darwin](https://github.com/LnL7/nix-darwin), which provides NixOS-like configuration for macOS systems.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- macOS 10.15 (Catalina) or later
+- Administrator access
+- At least 10GB of free disk space
+- Xcode Command Line Tools installed
+
+<Note>
+The macOS configuration uses Homebrew for apps that aren't available in Nixpkgs. The setup is fully declarative using [nix-homebrew](https://github.com/zhaofengli/nix-homebrew).
+</Note>
+
+## Installation
+
+<Steps>
+  <Step title="Install Lix package manager">
+    Install [Lix](https://lix.systems/), a modern Nix implementation:
+
+    ```bash
+    curl -sSf -L https://install.lix.systems/lix | sh -s -- install
+    ```
+
+    After installation, open a new terminal or source your shell profile:
+
+    ```bash
+    source ~/.zshrc  # or ~/.bash_profile for bash
+    ```
+
+    <Warning>
+    The installer will modify your shell profile and system configuration. Review the changes it makes.
+    </Warning>
+  </Step>
+
+  <Step title="Enter development shell">
+    Use a Nix development shell to access required tools like git:
+
+    ```bash
+    nix develop github:isabelroses/dotfiles
+    ```
+
+    This provides a temporary environment with all necessary dependencies.
+  </Step>
+
+  <Step title="Clone the repository">
+    Clone the dotfiles repository:
+
+    ```bash
+    git clone https://github.com/isabelroses/dotfiles.git ~/.config/flake
+    cd ~/.config/flake
+    ```
+  </Step>
+
+  <Step title="Choose your host">
+    Check the available macOS configurations:
+
+    ```bash
+    # View the tatsumaki configuration (example macOS host)
+    cat systems/tatsumaki/default.nix
+    ```
+
+    The example configuration looks like:
+
+    ```nix
+    {
+      imports = [ ./users.nix ];
+
+      garden = {
+        profiles = {
+          laptop.enable = true;
+          graphical.enable = true;
+          workstation.enable = true;
+        };
+      };
+    }
+    ```
+
+    You can either:
+    - Use `tatsumaki` as your host name
+    - Create a new configuration for your Mac
+  </Step>
+
+  <Step title="Create your host configuration (optional)">
+    If you want to create a custom configuration:
+
+    ```bash
+    # Create a new host directory
+    mkdir -p systems/yourhostname
+
+    # Copy the example configuration
+    cp systems/tatsumaki/default.nix systems/yourhostname/
+    cp systems/tatsumaki/users.nix systems/yourhostname/
+
+    # Edit as needed
+    $EDITOR systems/yourhostname/default.nix
+    ```
+
+    Add your host to `systems/default.nix`:
+
+    ```nix
+    hosts = {
+      # ... existing hosts ...
+      
+      yourhostname = {
+        arch = "aarch64";  # or "x86_64" for Intel Macs
+        class = "darwin";
+      };
+    };
+    ```
+  </Step>
+
+  <Step title="Provision the system">
+    Run the provision command to apply the configuration:
+
+    ```bash
+    just provision yourhostname
+    ```
+
+    Or use the full command:
+
+    ```bash
+    sudo nix run github:LnL7/nix-darwin -- switch --flake ~/.config/flake#yourhostname
+    ```
+
+    <Note>
+    The first run will take significant time as it downloads and builds all packages, including Homebrew casks.
+    </Note>
+  </Step>
+
+  <Step title="Clean up temporary Lix install">
+    The provision process installs Lix declaratively. Remove the imperative install:
+
+    ```bash
+    sudo -i nix-env --uninstall lix
+    ```
+  </Step>
+</Steps>
+
+## Homebrew integration
+
+The configuration uses `nix-homebrew` to make Homebrew apps fully reproducible. The setup includes:
+
+### Configured casks
+
+The default configuration installs these applications via Homebrew:
+
+```nix
+casks = [
+  "gimp"                    # Image editor
+  "raycast"                 # App launcher and clipboard manager
+  "discord"                 # Communication
+  "ghostty"                 # Terminal emulator
+  "helium-browser"          # Floating browser
+  "jellyfin-media-player"   # Media player
+];
+```
+
+### Homebrew formulae
+
+```nix
+brews = [
+  "mole"  # Network tunneling tool
+];
+```
+
+<Note>
+All Homebrew packages are pinned to specific versions through nix-homebrew for reproducibility. This means `brew update` won't work as expected - instead, update the flake.
+</Note>
+
+## Post-installation
+
+### Apply future changes
+
+After modifying your configuration, apply changes using:
+
+```bash
+# Using justfile
+just switch
+
+# Or manually
+sudo darwin-rebuild switch --flake ~/.config/flake#yourhostname
+```
+
+### Verify the installation
+
+Check that the system is using your configuration:
+
+```bash
+# Check darwin-rebuild version
+darwin-rebuild --version
+
+# View current generation
+darwin-rebuild --list-generations
+```
+
+### Using justfile commands
+
+The repository includes macOS-specific just commands:
+
+```bash
+# List all commands
+just
+
+# Apply configuration
+just switch
+
+# Test without switching
+just test
+
+# Update flake inputs
+just update
+```
+
+## Configuration options
+
+### System profiles
+
+Available profiles you can enable:
+
+- `graphical` - GUI applications and desktop environment
+- `laptop` - Laptop-specific settings (battery, trackpad)
+- `workstation` - Development tools and productivity apps
+
+### Customizing Homebrew packages
+
+Edit `modules/darwin/brew/default.nix` to add or remove applications:
+
+```nix
+casks = [
+  # Add your applications here
+  "visual-studio-code"
+  "firefox"
+];
+
+brews = [
+  # Add command-line tools here
+  "ffmpeg"
+];
+```
+
+### Hardware configuration
+
+For macOS, hardware detection is automatic, but you can configure:
+
+```nix
+garden.device = {
+  keyboard = "us";  # Keyboard layout
+  capabilities = {
+    bluetooth = true;
+  };
+};
+```
+
+## Troubleshooting
+
+### "experimental-features" error
+
+If you get an error about experimental features:
+
+```bash
+mkdir -p ~/.config/nix
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
+### Homebrew installation fails
+
+If Homebrew packages fail to install:
+
+```bash
+# Check Homebrew status
+brew doctor
+
+# View detailed logs
+darwin-rebuild switch --flake ~/.config/flake#yourhostname --show-trace
+```
+
+### Permission denied errors
+
+Ensure you're running darwin-rebuild with `sudo`:
+
+```bash
+sudo darwin-rebuild switch --flake ~/.config/flake#yourhostname
+```
+
+### Rolling back changes
+
+If something breaks, roll back to a previous generation:
+
+```bash
+# List generations
+darwin-rebuild --list-generations
+
+# Roll back to previous
+sudo darwin-rebuild rollback
+
+# Switch to specific generation
+sudo darwin-rebuild switch --rollback --generation 42
+```
+
+### Mac App Store apps
+
+Some apps require manual installation from the App Store first:
+
+```nix
+masApps = {
+  "Xcode" = 497799835;
+};
+```
+
+Install the app manually once, then add it to the configuration.
+
+## Architecture differences
+
+### Apple Silicon (M1/M2/M3)
+
+For Apple Silicon Macs, set:
+
+```nix
+arch = "aarch64";
+```
+
+### Intel Macs
+
+For Intel Macs, set:
+
+```nix
+arch = "x86_64";
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration guide" icon="gear" href="/configuration/overview">
+    Learn how to customize your setup
+  </Card>
+  <Card title="Modules reference" icon="cube" href="/modules/overview">
+    Explore available modules
+  </Card>
+</CardGroup>

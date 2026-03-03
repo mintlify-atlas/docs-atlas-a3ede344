@@ -1,0 +1,210 @@
+---
+title: Architecture overview
+description: Understanding the modular structure of Isabel's Dotfiles
+---
+
+Isabel's Dotfiles is a modular NixOS configuration framework built on flake-parts and easy-hosts. The architecture separates concerns into distinct layers: flake outputs, system definitions, and reusable modules.
+
+## Core principles
+
+The configuration follows these architectural principles:
+
+<CardGroup cols={2}>
+  <Card title="Modularity" icon="cubes">
+    Configuration is split into small, focused modules that can be composed together
+  </Card>
+  <Card title="Cross-platform" icon="laptop-code">
+    Supports NixOS, macOS (nix-darwin), WSL2, and ISO images from a single codebase
+  </Card>
+  <Card title="Type safety" icon="shield-check">
+    Uses Nix's module system with type-checked options for reliable configuration
+  </Card>
+  <Card title="Reusability" icon="recycle">
+    Shared modules work across different system classes, reducing duplication
+  </Card>
+</CardGroup>
+
+## Architectural layers
+
+The configuration is organized into three distinct layers:
+
+### 1. Flake layer
+
+The top-level `flake.nix` defines inputs and delegates to flake-parts:
+
+```nix
+{
+  description = "Isabel's dotfiles";
+
+  outputs =
+    inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } { imports = [ ./modules/flake ]; };
+
+  inputs = {
+    nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
+    darwin = { /* ... */ };
+    home-manager = { /* ... */ };
+    flake-parts = { /* ... */ };
+    easy-hosts = { /* ... */ };
+    # Additional inputs...
+  };
+}
+```
+
+The `modules/flake/` directory contains flake-parts modules that generate outputs:
+
+- **args.nix** - Base arguments passed to all systems
+- **checks/** - Custom validation checks
+- **lib/** - Shared library functions
+- **packages/** - Custom packages provided by the flake
+- **programs/** - Development shell programs
+
+### 2. System definitions
+
+The `systems/` directory contains per-host configurations using easy-hosts:
+
+```nix
+{ self, inputs, ... }:
+{
+  imports = [ inputs.easy-hosts.flakeModule ];
+
+  config.easy-hosts = {
+    additionalClasses = {
+      wsl = "nixos";
+    };
+
+    perClass = class: {
+      modules = [
+        "${self}/modules/${class}/default.nix"
+      ];
+    };
+
+    hosts = {
+      amaterasu = { };
+      tatsumaki = {
+        arch = "aarch64";
+        class = "darwin";
+      };
+      valkyrie = {
+        class = "wsl";
+      };
+      # More hosts...
+    };
+  };
+}
+```
+
+Each host has its own directory in `systems/` with host-specific configuration.
+
+### 3. Module layer
+
+The `modules/` directory contains reusable configuration modules organized by system class. This is covered in detail in the [Modules](/architecture/modules) page.
+
+## Configuration flow
+
+Here's how configuration flows through the system:
+
+<Steps>
+  <Step title="Flake evaluation">
+    Nix evaluates `flake.nix` and loads flake-parts modules from `modules/flake/`
+  </Step>
+  <Step title="Host selection">
+    easy-hosts generates system configurations based on `systems/default.nix`
+  </Step>
+  <Step title="Class modules">
+    The system class (nixos/darwin/wsl/iso) determines which base modules are imported
+  </Step>
+  <Step title="Host configuration">
+    Host-specific settings from `systems/<hostname>/` override defaults
+  </Step>
+  <Step title="Option resolution">
+    The NixOS module system evaluates all options and generates the final configuration
+  </Step>
+</Steps>
+
+## The garden namespace
+
+All custom options are namespaced under `garden.*` to avoid conflicts:
+
+```nix
+garden = {
+  profiles = {
+    graphical.enable = true;
+    workstation.enable = true;
+  };
+
+  device = {
+    cpu = "intel";
+    gpu = "nvidia";
+    capabilities = {
+      tpm = true;
+      bluetooth = true;
+    };
+  };
+
+  system = {
+    boot.loader = "systemd-boot";
+    users = [ "isabel" ];
+  };
+};
+```
+
+<Note>
+  The `garden` namespace was chosen to represent a carefully cultivated configuration that grows over time.
+</Note>
+
+## System classes
+
+The framework supports multiple system classes:
+
+<AccordionGroup>
+  <Accordion title="nixos - NixOS systems">
+    Full NixOS configurations for desktops, laptops, and servers. Includes all base modules plus NixOS-specific modules for boot, hardware, networking, and services.
+
+    **Module path:** `modules/nixos/`
+  </Accordion>
+  
+  <Accordion title="darwin - macOS systems">
+    macOS configurations using nix-darwin. Includes base modules plus Darwin-specific modules for Homebrew, preferences, and macOS-specific settings.
+
+    **Module path:** `modules/darwin/`
+  </Accordion>
+  
+  <Accordion title="wsl - WSL2 instances">
+    NixOS on WSL2 configurations. Treated as a nixos subclass with WSL-specific modules.
+
+    **Module path:** `modules/wsl/`
+  </Accordion>
+  
+  <Accordion title="iso - Installation images">
+    Bootable ISO images for installing NixOS. Used for system installation and recovery.
+
+    **Module path:** `modules/iso/`
+  </Accordion>
+  
+  <Accordion title="home - Home Manager (internal)">
+    Home Manager configurations are imported by base modules and share the same `garden` namespace.
+
+    **Module path:** `modules/home/`
+  </Accordion>
+</AccordionGroup>
+
+## Integration with home-manager
+
+Home Manager is integrated at the base level, meaning user environment configuration is part of system configuration:
+
+- Home Manager modules are imported by `modules/base/default.nix`
+- User-specific settings use the same `garden.*` options
+- Home Manager and system configuration share the same module system
+
+This tight integration ensures consistency between system and user configuration.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Module system" icon="puzzle-piece" href="/architecture/modules">
+    Learn how modules are organized and how to create new ones
+  </Card>
+  <Card title="System definitions" icon="server" href="/architecture/systems">
+    Understand how to configure individual hosts
+  </Card>
+</CardGroup>

@@ -1,0 +1,369 @@
+---
+title: "Catppuccin"
+description: "Configure the Catppuccin theme across your entire system"
+---
+
+Isabel's Dotfiles uses the [Catppuccin](https://github.com/catppuccin/nix) theme system-wide for a cohesive, beautiful aesthetic. The configuration integrates Catppuccin across NixOS, Home Manager, and individual applications.
+
+## Overview
+
+Catppuccin is a community-driven pastel theme that comes in four flavors. This configuration uses the **Mocha** flavor with **Pink** accents.
+
+<CardGroup cols={4}>
+  <Card title="Latte" icon="sun">
+    Light theme
+  </Card>
+  <Card title="Frappé" icon="cloud">
+    Mid-light theme
+  </Card>
+  <Card title="Macchiato" icon="moon">
+    Mid-dark theme
+  </Card>
+  <Card title="Mocha" icon="moon-stars">
+    Dark theme (used here)
+  </Card>
+</CardGroup>
+
+## NixOS configuration
+
+The system-level Catppuccin configuration is in `modules/nixos/catppuccin.nix`:
+
+```nix modules/nixos/catppuccin.nix
+{
+  imports = [ inputs.catppuccin.nixosModules.catppuccin ];
+
+  config = {
+    catppuccin = {
+      enable = lib.mkDefault (!config.garden.profiles.headless.enable);
+      sources = options.catppuccin.sources.default;
+      flavor = "mocha";
+
+      # IFD, easy to vendor
+      tty.enable = false;
+    };
+  };
+}
+```
+
+<Note>
+Catppuccin is automatically disabled for headless systems (servers without a GUI).
+</Note>
+
+### Console colors
+
+The configuration includes custom console colors matching the Mocha palette:
+
+```nix modules/nixos/catppuccin.nix
+console.colors = lib.mkIf config.catppuccin.enable [
+  "1e1e2e"  # Base
+  "f38ba8"  # Red
+  "a6e3a1"  # Green
+  "f9e2af"  # Yellow
+  "89b4fa"  # Blue
+  "f5c2e7"  # Pink
+  "94e2d5"  # Teal
+  "bac2de"  # Subtext1
+  "585b70"  # Surface2
+  "f38ba8"  # Red (bright)
+  "a6e3a1"  # Green (bright)
+  "f9e2af"  # Yellow (bright)
+  "89b4fa"  # Blue (bright)
+  "f5c2e7"  # Pink (bright)
+  "94e2d5"  # Teal (bright)
+  "a6adc8"  # Subtext0
+];
+```
+
+## Home Manager configuration
+
+Per-user theming is configured in `home/isabel/themes/catppuccin.nix`:
+
+```nix home/isabel/themes/catppuccin.nix
+{
+  imports = [ inputs.catppuccin.homeModules.catppuccin ];
+
+  config = {
+    catppuccin = {
+      inherit (config.garden.profiles.workstation) enable;
+      sources = options.catppuccin.sources.default;
+
+      flavor = "mocha";
+      accent = "pink";
+
+      cursors = {
+        enable = isGui;
+        accent = "dark";
+      };
+
+      gtk.icon.enable = isGui;
+    };
+  };
+}
+```
+
+### Accent colors
+
+Catppuccin supports multiple accent colors. This configuration uses **pink**:
+
+<Tabs>
+  <Tab title="Available accents">
+    - Rosewater
+    - Flamingo
+    - **Pink** (used here)
+    - Mauve
+    - Red
+    - Maroon
+    - Peach
+    - Yellow
+    - Green
+    - Teal
+    - Sky
+    - Sapphire
+    - Blue
+    - Lavender
+  </Tab>
+  <Tab title="Usage in config">
+    ```nix home/isabel/themes/catppuccin.nix
+    catppuccin = {
+      flavor = "mocha";
+      accent = "pink";
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## GTK theming
+
+The GTK configuration in `home/isabel/themes/gtk.nix` uses Catppuccin themes:
+
+```nix home/isabel/themes/gtk.nix
+gtk = {
+  enable = true;
+
+  theme = {
+    name = "catppuccin-${ctp.flavor}-${ctp.accent}-standard";
+    package = pkgs.catppuccin-gtk.override {
+      size = "standard";
+      accents = [ ctp.accent ];
+      variant = ctp.flavor;
+    };
+  };
+};
+```
+
+### GTK preferences
+
+```nix home/isabel/themes/gtk.nix
+gtk3.extraConfig = {
+  # Make things look nice
+  gtk-application-prefer-dark-theme = true;
+  gtk-decoration-layout = "appmenu:none";
+
+  # Font rendering
+  gtk-xft-antialias = 1;
+  gtk-xft-hinting = 1;
+  gtk-xft-hintstyle = "hintslight";
+
+  # Stop annoying sounds
+  gtk-enable-event-sounds = 0;
+  gtk-enable-input-feedback-sounds = 0;
+  gtk-error-bell = 0;
+};
+```
+
+<Note>
+The same settings are applied to both GTK3 and GTK4 for consistency.
+</Note>
+
+## Selective application theming
+
+Some applications have Catppuccin theming disabled for specific reasons:
+
+```nix home/isabel/themes/catppuccin.nix
+# I don't even use the colors from the port
+waybar.enable = false;
+
+# IFD and can use term colors
+starship.enable = false;
+
+# IFD and easy enough to vendor
+fzf.enable = false;
+
+# IFD and can use term colors
+eza.enable = false;
+```
+
+<Warning>
+**IFD** (Import From Derivation) can slow down evaluation. Some ports are disabled to avoid this performance penalty when terminal colors can be used instead.
+</Warning>
+
+## Cursor theme
+
+Catppuccin cursors are enabled for GUI systems:
+
+```nix home/isabel/themes/catppuccin.nix
+cursors = {
+  enable = isGui;
+  accent = "dark";
+};
+```
+
+The `dark` accent provides better contrast on dark backgrounds.
+
+## Icon theme
+
+```nix home/isabel/themes/catppuccin.nix
+gtk.icon.enable = isGui;
+```
+
+## TTY theming
+
+TTY theming is disabled to avoid Import From Derivation:
+
+```nix modules/nixos/catppuccin.nix
+# IFD, easy to vendor
+tty.enable = false;
+```
+
+Instead, console colors are set manually (shown earlier).
+
+## Hyprland integration
+
+The Hyprland configuration uses Catppuccin color variables:
+
+```nix home/isabel/gui/hyprland.nix
+general = {
+  "col.active_border" = "$pink";
+  "col.inactive_border" = "$surface1";
+};
+
+group = {
+  "col.border_active" = "$rosewater";
+  "col.border_inactive" = "$surface1";
+};
+
+decoration = {
+  shadow = {
+    enabled = true;
+    color = "rgb(11111B)";  # Mocha base
+    color_inactive = "rgba(11111B00)";
+  };
+};
+```
+
+These color variables are automatically provided by the Catppuccin theme integration.
+
+## Binary cache
+
+To speed up builds, the configuration uses the Catppuccin binary cache:
+
+```nix modules/base/nix/substituters.nix
+substituters = [
+  "https://nix-community.cachix.org"
+]
+++ optionals hasCtp [
+  "https://catppuccin.cachix.org"
+];
+
+trusted-public-keys = [
+  "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+]
+++ optionals hasCtp [
+  "catppuccin.cachix.org-1:noG/4HkbhJb+lUAdKrph6LaozJvAeEEZj4N732IysmU="
+];
+```
+
+The cache is only added when Catppuccin is enabled.
+
+## Changing themes
+
+To use a different flavor or accent:
+
+<Steps>
+  <Step title="Edit the flavor">
+    Change `flavor = "mocha"` to one of: `latte`, `frappe`, `macchiato`, or `mocha`
+    
+    ```nix
+    catppuccin.flavor = "frappe";  # Switch to Frappé
+    ```
+  </Step>
+  <Step title="Edit the accent">
+    Change `accent = "pink"` to any of the 14 available accent colors
+    
+    ```nix
+    catppuccin.accent = "mauve";  # Switch to mauve accent
+    ```
+  </Step>
+  <Step title="Rebuild your system">
+    ```bash
+    sudo nixos-rebuild switch --flake ~/.config/flake#<host>
+    ```
+  </Step>
+</Steps>
+
+## Application-specific theming
+
+Many applications in the configuration automatically use Catppuccin:
+
+- **Terminal emulators**: Ghostty, WezTerm
+- **Editors**: Neovim (via izvim)
+- **Browsers**: Chromium
+- **File managers**: Cosmic Files
+- **System UI**: Hyprland, GTK applications
+- **Development tools**: Git, lazygit
+
+Each application's theme configuration is located in its respective module under `home/isabel/`.
+
+## Color reference
+
+Catppuccin Mocha palette:
+
+<CodeGroup>
+
+```nix Base colors
+base      = "#1e1e2e"
+mantle    = "#181825"
+crust     = "#11111b"
+```
+
+```nix Text colors
+text      = "#cdd6f4"
+subtext1  = "#bac2de"
+subtext0  = "#a6adc8"
+```
+
+```nix Surface colors
+surface0  = "#313244"
+surface1  = "#45475a"
+surface2  = "#585b70"
+```
+
+```nix Accent colors
+rosewater = "#f5e0dc"
+flamingo  = "#f2cdcd"
+pink      = "#f5c2e7"
+mauve     = "#cba6f7"
+red       = "#f38ba8"
+maroon    = "#eba0ac"
+peach     = "#fab387"
+yellow    = "#f9e2af"
+green     = "#a6e3a1"
+teal      = "#94e2d5"
+sky       = "#89dceb"
+sapphire  = "#74c7ec"
+blue      = "#89b4fa"
+lavender  = "#b4befe"
+```
+
+</CodeGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Window Manager" icon="window-maximize" href="/configuration/window-manager">
+    See how Catppuccin integrates with Hyprland
+  </Card>
+  <Card title="Home Manager" icon="house" href="/configuration/home-manager">
+    Learn about per-user configuration
+  </Card>
+</CardGroup>

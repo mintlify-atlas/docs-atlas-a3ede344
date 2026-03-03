@@ -1,0 +1,319 @@
+---
+title: Templates
+description: Use Nix flake templates to quickly bootstrap new projects with preconfigured development environments
+---
+
+This repository previously hosted Nix flake templates, but they have been moved to a dedicated repository for better organization and maintenance.
+
+## Template repository
+
+All templates are now available at:
+
+**[tgirlcloud/nix-templates](https://github.com/tgirlcloud/nix-templates)**
+
+## Using templates
+
+There are two ways to use the templates:
+
+### Initialize in current directory
+
+Initialize a template in the current directory:
+
+```bash
+nix flake init -t github:tgirlcloud/nix-templates#<template>
+```
+
+<Tip>
+  This will create template files in your current working directory. Make sure you're in an empty directory or are okay with files being added.
+</Tip>
+
+### Create in new directory
+
+Create a new directory with the template:
+
+```bash
+nix flake new -t github:tgirlcloud/nix-templates#<template> <output-directory>
+```
+
+Example:
+```bash
+nix flake new -t github:tgirlcloud/nix-templates#rust my-rust-project
+cd my-rust-project
+```
+
+## Available templates
+
+To see all available templates:
+
+<Tabs>
+  <Tab title="List templates">
+    ```bash
+    nix flake show github:tgirlcloud/nix-templates
+    ```
+  </Tab>
+  <Tab title="Web view">
+    Visit the [nix-templates repository](https://github.com/tgirlcloud/nix-templates) to browse available templates.
+  </Tab>
+</Tabs>
+
+## Common templates
+
+While the exact list may change, typical templates include:
+
+<CardGroup cols={2}>
+  <Card title="Rust" icon="rust">
+    Rust development environment with cargo and rust-analyzer
+  </Card>
+  <Card title="Python" icon="python">
+    Python environment with pip, virtualenv, and common tools
+  </Card>
+  <Card title="Node.js" icon="node">
+    Node.js/TypeScript setup with npm/pnpm and common tooling
+  </Card>
+  <Card title="Go" icon="golang">
+    Go development environment with Go toolchain and LSP
+  </Card>
+</CardGroup>
+
+## Template structure
+
+Templates typically include:
+
+- `flake.nix` - Flake configuration with development shell
+- `flake.lock` - Locked dependency versions
+- `.envrc` - direnv integration (optional)
+- Language-specific files (e.g., `Cargo.toml`, `package.json`)
+
+### Example template structure
+
+```
+rust-template/
+├── flake.nix           # Nix flake with dev shell
+├── flake.lock          # Dependency versions
+├── .envrc              # direnv configuration
+├── .gitignore          # Git ignore rules
+├── Cargo.toml          # Rust manifest
+└── src/
+    └── main.rs         # Example source file
+```
+
+## Using a template
+
+Here's a complete workflow for starting a new project:
+
+<Steps>
+  <Step title="Create project from template">
+    ```bash
+    nix flake new -t github:tgirlcloud/nix-templates#rust my-project
+    cd my-project
+    ```
+  </Step>
+
+  <Step title="Enter development shell">
+    ```bash
+    nix develop
+    ```
+
+    Or if you have direnv:
+    ```bash
+    direnv allow
+    ```
+  </Step>
+
+  <Step title="Start developing">
+    The development shell provides all necessary tools:
+
+    ```bash
+    # For Rust template
+    cargo build
+    cargo run
+
+    # For Python template  
+    python -m venv .venv
+    source .venv/bin/activate
+
+    # For Node.js template
+    npm install
+    npm run dev
+    ```
+  </Step>
+
+  <Step title="Customize the flake">
+    Edit `flake.nix` to add or remove dependencies:
+
+    ```nix flake.nix
+    {
+      description = "My awesome project";
+
+      inputs = {
+        nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      };
+
+      outputs = { self, nixpkgs }:
+        let
+          system = "x86_64-linux";
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          devShells.${system}.default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              # Add your tools here
+              rustc
+              cargo
+              rust-analyzer
+              clippy
+            ];
+          };
+        };
+    }
+    ```
+  </Step>
+</Steps>
+
+## Creating your own templates
+
+You can create custom templates in your own repository:
+
+<Steps>
+  <Step title="Create template directory structure">
+    ```bash
+    mkdir -p templates/mytemplate
+    cd templates/mytemplate
+    ```
+  </Step>
+
+  <Step title="Add template files">
+    Create the files you want in the template:
+
+    ```nix flake.nix
+    {
+      description = "My custom template";
+
+      inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+      outputs = { nixpkgs, ... }: {
+        # Template content
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Register in your flake">
+    In your repository's main `flake.nix`:
+
+    ```nix flake.nix
+    {
+      outputs = { self }: {
+        templates = {
+          mytemplate = {
+            path = ./templates/mytemplate;
+            description = "My custom template for...";
+          };
+        };
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Use your template">
+    ```bash
+    nix flake new -t github:yourname/yourrepo#mytemplate new-project
+    ```
+  </Step>
+</Steps>
+
+## Template best practices
+
+<AccordionGroup>
+  <Accordion title="Include .envrc for direnv">
+    Add direnv support for automatic shell activation:
+
+    ```bash .envrc
+    use flake
+    ```
+
+    Users with direnv installed will automatically enter the dev shell.
+  </Accordion>
+
+  <Accordion title="Lock dependencies">
+    Always include `flake.lock` to ensure reproducible builds:
+
+    ```bash
+    nix flake lock
+    git add flake.lock
+    ```
+  </Accordion>
+
+  <Accordion title="Add helpful documentation">
+    Include a README explaining:
+    - What the template provides
+    - How to use it
+    - How to customize it
+    - Common commands
+  </Accordion>
+
+  <Accordion title="Keep it minimal">
+    Templates should be starting points, not complete applications. Include:
+    - Essential dependencies
+    - Basic configuration
+    - Example files
+
+    Avoid:
+    - Too many opinionated choices
+    - Complex build setups
+    - Large dependency trees
+  </Accordion>
+</AccordionGroup>
+
+## Integration with development shells
+
+Templates work great with development shells defined in your system configuration:
+
+```nix home/yourname/dev/rust.nix
+{
+  pkgs,
+  ...
+}:
+{
+  # Global Rust tools available in all shells
+  garden.packages = {
+    inherit (pkgs)
+      rustc
+      cargo
+      rust-analyzer
+      rustfmt
+      clippy
+      ;
+  };
+}
+```
+
+Then project-specific `flake.nix` can add project dependencies:
+
+```nix
+devShells.default = pkgs.mkShell {
+  buildInputs = with pkgs; [
+    # Project-specific dependencies
+    openssl
+    postgresql
+    redis
+  ];
+};
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="nix-templates" icon="github" href="https://github.com/tgirlcloud/nix-templates">
+    Browse available templates
+  </Card>
+  <Card title="Adding packages" icon="box" href="/guides/adding-packages">
+    Learn about package management
+  </Card>
+  <Card title="Development environments" icon="code" href="https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-develop">
+    Read about nix develop
+  </Card>
+  <Card title="Flakes" icon="snowflake" href="https://nixos.wiki/wiki/Flakes">
+    Learn more about Nix flakes
+  </Card>
+</CardGroup>

@@ -1,0 +1,391 @@
+---
+title: Module system
+description: Understanding the module organization and structure
+---
+
+The module system is the foundation of Isabel's Dotfiles. Modules are organized by system class and concern, allowing you to build complex configurations from small, focused components.
+
+## Module hierarchy
+
+Modules are organized in a hierarchical structure under `modules/`:
+
+```
+modules/
+├── flake/          # Flake outputs and development environment
+├── generic/        # Cross-platform generic modules
+├── base/           # Shared between NixOS and macOS
+├── nixos/          # NixOS-specific modules
+├── darwin/         # macOS-specific modules  
+├── home/           # Home Manager user environment
+├── wsl/            # WSL2-specific modules
+└── iso/            # ISO installation image modules
+```
+
+### Module inheritance
+
+Modules inherit from each other based on system class:
+
+<Steps>
+  <Step title="Generic modules">
+    `modules/generic/` - Platform-agnostic options like profiles and packages
+  </Step>
+  <Step title="Base modules">
+    `modules/base/` - Imports generic and home modules, adds Nix configuration, fonts, and users
+  </Step>
+  <Step title="Class modules">
+    `modules/nixos/` or `modules/darwin/` - Import base modules and add platform-specific configuration
+  </Step>
+  <Step title="Host configuration">
+    `systems/<hostname>/` - Imports class modules and sets host-specific options
+  </Step>
+</Steps>
+
+## Module categories
+
+### Flake modules
+
+Located in `modules/flake/`, these modules define flake outputs:
+
+```nix
+{
+  imports = [
+    ../../systems      # System definitions
+    ./args.nix         # Base args passed to the flake
+    ./checks           # Custom validation checks
+    ./lib              # Shared library functions  
+    ./packages         # Custom packages
+    ./programs         # Dev shell programs
+  ];
+}
+```
+
+These modules don't configure systems directly - they generate flake outputs like packages, checks, and development shells.
+
+### Generic modules
+
+Located in `modules/generic/`, these work with any module system:
+
+```nix
+{
+  imports = [
+    ./packages.nix     # Package declarations
+    ./profiles.nix     # Profile options (graphical, workstation, etc.)
+  ];
+}
+```
+
+**Example profile options:**
+
+```nix
+{ lib, ... }:
+let
+  inherit (lib) mkEnableOption;
+in
+{
+  options.garden.profiles = {
+    graphical.enable = mkEnableOption "Graphical interface";
+    headless.enable = mkEnableOption "Headless";
+    workstation.enable = mkEnableOption "Workstation";
+    laptop.enable = mkEnableOption "Laptop";
+    server.enable = mkEnableOption "Server";
+  };
+}
+```
+
+### Base modules
+
+Located in `modules/base/`, these are shared between NixOS and macOS:
+
+```nix
+{
+  imports = [
+    ../generic         # Generic cross-platform modules
+    ../../home         # Home Manager configuration
+    ./nix              # Nix package manager settings
+    ./nixpkgs.nix      # Nixpkgs configuration
+    ./programs.nix     # Base programs
+    ./system           # System-level configuration
+    ./users            # User management
+  ];
+}
+```
+
+**Key base modules:**
+
+<CardGroup cols={2}>
+  <Card title="nix/" icon="gear">
+    Nix daemon configuration, substituters, plugins, and environment variables
+  </Card>
+  <Card title="users/" icon="users">
+    User account management with `garden.system.users` and `garden.system.mainUser`
+  </Card>
+  <Card title="system/" icon="computer">
+    System-wide settings like fonts, revision tracking, and environment variables
+  </Card>
+  <Card title="nixpkgs.nix" icon="box">
+    Nixpkgs configuration including allowed unfree packages and overlays
+  </Card>
+</CardGroup>
+
+### NixOS modules
+
+Located in `modules/nixos/`, these configure NixOS-specific features:
+
+```nix
+{
+  _class = "nixos";
+
+  imports = [
+    ../base            # Import base modules
+    ./boot             # Boot loader and kernel
+    ./catppuccin.nix   # Theme integration
+    ./emulation.nix    # Virtualization and emulation
+    ./environment      # Environment variables
+    ./extras.nix       # Additional module imports
+    ./hardware         # Hardware configuration
+    ./headless.nix     # Headless system configuration
+    ./kernel           # Kernel configuration
+    ./networking       # Network configuration
+    ./programs         # NixOS programs
+    ./security         # Security settings
+    ./services         # System services
+    ./system           # System configuration
+    ./users            # NixOS user configuration
+  ];
+}
+```
+
+**Example boot module structure:**
+
+```nix
+# modules/nixos/boot/default.nix
+{
+  imports = [
+    ./generic.nix      # Generic boot configuration
+    ./loader.nix       # Boot loader selection
+    ./secure-boot.nix  # Secure boot with lanzaboote
+  ];
+}
+```
+
+### Darwin modules
+
+Located in `modules/darwin/`, these configure macOS systems:
+
+```
+darwin/
+├── brew/              # Homebrew integration
+├── config-path.nix    # Configuration paths
+├── default.nix        # Main entry point
+├── hardware/          # Hardware settings
+├── preferences/       # macOS preferences
+└── security/          # Security configuration
+```
+
+### Home Manager modules
+
+Located in `modules/home/`, these configure the user environment:
+
+```nix
+{
+  _class = "homeManager";
+
+  imports = [
+    ../generic         # Generic modules
+    ./docs.nix         # Documentation settings
+    ./environment      # User environment variables
+    ./extras.nix       # External module imports
+    ./home.nix         # Home Manager settings
+    ./profiles.nix     # User profiles
+    ./programs         # User programs
+    ./secrets.nix      # User secrets
+    ./themes           # Application themes
+  ];
+}
+```
+
+<Note>
+  Home Manager modules are imported by base modules, so they're available to all system classes.
+</Note>
+
+## Module structure
+
+Most module directories follow this pattern:
+
+<CodeGroup>
+```nix default.nix
+{
+  imports = [
+    ./feature-a.nix
+    ./feature-b.nix
+    ./feature-c.nix
+  ];
+}
+```
+
+```nix feature-a.nix
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
+let
+  inherit (lib) mkIf mkEnableOption;
+  cfg = config.garden.feature;
+in
+{
+  options.garden.feature = {
+    enable = mkEnableOption "Feature A";
+  };
+
+  config = mkIf cfg.enable {
+    # Configuration when enabled
+  };
+}
+```
+</CodeGroup>
+
+## User management
+
+The base user modules provide a unified interface for declaring users:
+
+```nix
+# modules/base/users/options.nix
+{ lib, config, ... }:
+{
+  options.garden.system = {
+    mainUser = mkOption {
+      type = enum config.garden.system.users;
+      description = "The username of the main user for your system";
+      default = builtins.elemAt config.garden.system.users 0;
+    };
+
+    users = mkOption {
+      type = listOf str;
+      default = [ "isabel" ];
+      description = '''
+        A list of users that you wish to declare as your non-system users.
+        The first username in the list will be treated as your main user
+        unless garden.system.mainUser is set.
+      ''';
+    };
+  };
+}
+```
+
+**Per-user configuration:**
+
+```nix
+# modules/base/users/isabel.nix
+{ lib, config, ... }:
+let
+  inherit (lib) elem mkIf;
+in
+{
+  config = mkIf (elem "isabel" config.garden.system.users) {
+    users.users.isabel = {
+      openssh.authorizedKeys.keys = [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMQDiHbMSinj8twL9cTgPOfI6OMexrTZyHX27T8gnMj2"
+      ];
+    };
+  };
+}
+```
+
+## Writing modules
+
+Follow these guidelines when writing modules:
+
+### Module function signature
+
+Use a tree-like structure for the head lambda args only if needed:
+
+```nix
+{
+  lib,
+  pkgs,
+  config,
+  inputs,
+  ...
+}:
+{
+  # Module configuration
+}
+```
+
+### Import structure
+
+Avoid going backwards in the flake's file structure:
+
+<CodeGroup>
+```nix Good
+imports = [
+  ../generic         # Parent directory
+  ../../home         # Ancestor directory
+  ./local-module.nix # Same directory
+];
+```
+
+```nix Bad
+imports = [
+  ./subdir/../file.nix  # Unnecessary navigation
+  ../../../some/deep/path # Going too far back
+];
+```
+</CodeGroup>
+
+### Option namespacing
+
+All custom options should be under the `garden.*` namespace:
+
+```nix
+options.garden.myFeature = {
+  enable = mkEnableOption "My feature";
+  package = mkPackageOption pkgs "my-package" { };
+  settings = mkOption {
+    type = types.attrs;
+    default = { };
+  };
+};
+```
+
+### Conditional configuration
+
+Use `mkIf` for conditional config based on options:
+
+```nix
+let
+  cfg = config.garden.myFeature;
+in
+{
+  options.garden.myFeature = {
+    enable = mkEnableOption "My feature";
+  };
+
+  config = mkIf cfg.enable {
+    # Only applied when enabled
+  };
+}
+```
+
+## Module discovery
+
+Modules are discovered through explicit imports:
+
+1. System class determines the entry point (e.g., `modules/nixos/default.nix`)
+2. Each `default.nix` imports its submodules
+3. Imports cascade down the module tree
+
+There's no automatic module discovery - you must explicitly import new modules in a `default.nix` file.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="System definitions" icon="server" href="/architecture/systems">
+    Learn how to configure individual hosts using modules
+  </Card>
+  <Card title="Architecture overview" icon="diagram-project" href="/architecture/overview">
+    Review the overall architecture
+  </Card>
+</CardGroup>

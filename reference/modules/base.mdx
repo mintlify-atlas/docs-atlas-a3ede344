@@ -1,0 +1,383 @@
+---
+title: Base modules
+description: Foundational configuration shared between NixOS and Darwin systems
+---
+
+Base modules provide the foundation for both NixOS and Darwin configurations. They define core functionality that works across both platforms, including Nix settings, package management, user configuration, and system utilities.
+
+## What base modules provide
+
+Base modules are automatically imported by both NixOS and Darwin modules. They handle platform differences internally, giving you a consistent configuration interface.
+
+<CardGroup cols={2}>
+  <Card title="Nix configuration" icon="snowflake">
+    Nix daemon settings, binary caches, and experimental features
+  </Card>
+  <Card title="Package management" icon="box">
+    nixpkgs configuration and system-wide packages
+  </Card>
+  <Card title="User management" icon="user">
+    User accounts and SSH key configuration
+  </Card>
+  <Card title="System utilities" icon="wrench">
+    Common tools and system metadata
+  </Card>
+</CardGroup>
+
+## Module categories
+
+### nix/
+
+Nix daemon and build system configuration.
+
+<AccordionGroup>
+  <Accordion title="nix.nix - Nix daemon settings">
+    Core Nix daemon configuration that works on both NixOS and Darwin.
+
+    Configures:
+    - Experimental features (flakes, nix-command)
+    - Build settings (cores, max-jobs)
+    - Auto-optimization and garbage collection
+    - Trusted users
+    - Sandbox settings
+
+    **Example configuration:**
+    ```nix
+    {
+      nix.settings = {
+        experimental-features = [ "nix-command" "flakes" ];
+        auto-optimise-store = true;
+        trusted-users = [ "root" "@wheel" ];
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="substituters.nix - Binary caches">
+    Configure binary cache servers for faster builds.
+
+    ```nix modules/base/nix/substituters.nix
+    {
+      nix.settings = {
+        substituters = [
+          "https://nix-community.cachix.org"
+          "https://catppuccin.cachix.org"
+        ];
+        
+        trusted-public-keys = [
+          "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+          "catppuccin.cachix.org-1:noG/4HkbhJb+lUAdKrph6LaozJvAeEEZj4N732IysmU="
+        ];
+      };
+      
+      # Enable custom binary cache
+      tgirlpkgs.cache.enable = true;
+    }
+    ```
+
+    Binary caches provide pre-built packages, dramatically reducing build times.
+  </Accordion>
+
+  <Accordion title="plugins.nix - Nix plugins">
+    Load Nix plugins to extend functionality.
+
+    Plugins can add:
+    - Custom fetchers
+    - Additional built-in functions
+    - Integration with external systems
+  </Accordion>
+
+  <Accordion title="environment.nix - Nix environment">
+    Environment variables for Nix operations.
+
+    Sets:
+    - `NIX_PATH` for channel compatibility
+    - Build environment variables
+    - Cache locations
+  </Accordion>
+</AccordionGroup>
+
+### system/
+
+Core system configuration and metadata.
+
+<AccordionGroup>
+  <Accordion title="revision.nix - System revision">
+    Track the git revision of your configuration.
+
+    Automatically embeds the current git commit hash into your system, making it easy to identify which configuration version is running.
+  </Accordion>
+
+  <Accordion title="vars.nix - System variables">
+    System-wide variables and metadata.
+
+    Defines:
+    - System name and hostname
+    - Machine type identifiers
+    - Custom system attributes
+  </Accordion>
+
+  <Accordion title="tools.nix - System tools">
+    Essential command-line tools that should be available on every system.
+
+    Includes:
+    - Core utilities (coreutils, findutils, diffutils)
+    - Network tools (curl, wget, rsync)
+    - Archive tools (tar, gzip, unzip)
+    - Text processing (grep, sed, awk)
+  </Accordion>
+
+  <Accordion title="fonts.nix - System fonts">
+    Base font configuration shared across platforms.
+
+    Ensures consistent fonts on both NixOS and Darwin.
+  </Accordion>
+</AccordionGroup>
+
+### users/
+
+User account management.
+
+<AccordionGroup>
+  <Accordion title="mkuser.nix - User creation helper">
+    Functions to create user accounts consistently across platforms.
+
+    Handles platform differences:
+    - NixOS uses `users.users`
+    - Darwin uses `users.users` with different options
+    - Home Manager integration
+  </Accordion>
+
+  <Accordion title="isabel.nix - Example user">
+    Configuration for the primary user (Isabel).
+
+    ```nix modules/base/users/isabel.nix
+    {
+      users.users.isabel = {
+        openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMQDiHbMSinj8twL9cTgPOfI6OMexrTZyHX27T8gnMj2"
+        ];
+      };
+    }
+    ```
+
+    This configuration is automatically applied when the user "isabel" is added to `garden.system.users`.
+  </Accordion>
+
+  <Accordion title="options.nix - User options">
+    Common user configuration options.
+
+    Defines:
+    - Shell selection
+    - Home directory location
+    - User groups and permissions
+    - SSH key management
+  </Accordion>
+</AccordionGroup>
+
+### Top-level modules
+
+<AccordionGroup>
+  <Accordion title="nixpkgs.nix - nixpkgs configuration">
+    Configure nixpkgs for building packages.
+
+    ```nix
+    {
+      nixpkgs.config = {
+        allowUnfree = true;
+        allowUnsupportedSystem = true;
+      };
+      
+      nixpkgs.overlays = [
+        # Custom package overlays
+      ];
+    }
+    ```
+
+    This ensures:
+    - Unfree packages (like Discord, Spotify) can be installed
+    - Cross-compilation to unsupported systems is allowed
+    - Custom package overlays are applied consistently
+  </Accordion>
+
+  <Accordion title="programs.nix - Base programs">
+    Programs that should be available on every system.
+
+    Includes:
+    - Git for version control
+    - Vim for quick edits
+    - Basic shell utilities
+  </Accordion>
+</AccordionGroup>
+
+## Usage example
+
+Base modules are imported automatically - you don't need to import them manually:
+
+```nix
+# NixOS automatically imports base modules
+{
+  imports = [ inputs.garden.nixosModules.default ];
+  # base modules are already loaded
+}
+
+# Darwin automatically imports base modules
+{
+  imports = [ inputs.garden.darwinModules.default ];
+  # base modules are already loaded
+}
+```
+
+You can then use the base module options:
+
+```nix
+{
+  # Configure Nix (from base/nix/)
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    auto-optimise-store = true;
+  };
+
+  # Configure nixpkgs (from base/nixpkgs.nix)
+  nixpkgs.config.allowUnfree = true;
+
+  # Add users (from base/users/)
+  garden.system.users = [ "isabel" ];
+
+  # Add packages (from generic/packages.nix)
+  garden.packages = with pkgs; {
+    inherit git vim curl;
+  };
+}
+```
+
+## Module inheritance
+
+The module hierarchy flows like this:
+
+```
+flake modules
+    ↓
+┌───────────┬───────────┐
+│           │           │
+NixOS    Darwin    Home Manager
+│           │           │
+└───────────┴───────────┘
+            ↓
+      base modules
+            ↓
+    generic modules
+```
+
+- **Flake modules** provide build system and development tools
+- **NixOS/Darwin modules** provide platform-specific system configuration
+- **Base modules** provide shared system configuration
+- **Home Manager modules** provide user configuration
+- **Generic modules** provide the most basic shared functionality
+
+## Key features
+
+### Platform abstraction
+
+Base modules hide platform differences. When you configure Nix settings, the framework automatically applies them correctly on both NixOS and Darwin.
+
+### Binary cache optimization
+
+Configured binary caches mean you download pre-built packages instead of compiling from source:
+
+```bash
+# Without binary cache: 45 minutes compiling
+# With binary cache: 30 seconds downloading
+nix build .#nixosConfigurations.myhost.config.system.build.toplevel
+```
+
+### User management
+
+User configuration is consistent across platforms. Define a user once, use it on both NixOS and Darwin:
+
+```nix
+{
+  garden.system.users = [ "isabel" ];
+  # SSH keys, shell, and settings automatically applied
+}
+```
+
+### Nix flakes enabled
+
+Base modules enable flakes and the new Nix CLI by default, giving you access to modern Nix features.
+
+## Configuration best practices
+
+### Enable binary caches
+
+Always configure binary caches to speed up builds:
+
+```nix
+{
+  tgirlpkgs.cache.enable = true; # Custom cache
+  # Community caches are enabled by default
+}
+```
+
+### Allow unfree packages
+
+Many useful packages require unfree licenses:
+
+```nix
+{
+  nixpkgs.config.allowUnfree = true;
+}
+```
+
+### Use auto-optimization
+
+Save disk space by deduplicating the Nix store:
+
+```nix
+{
+  nix.settings.auto-optimise-store = true;
+}
+```
+
+### Configure garbage collection
+
+Automatically clean up old generations:
+
+```nix
+{
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+}
+```
+
+## Relationship to generic modules
+
+Base modules import generic modules, which provide the most basic shared functionality:
+
+```nix modules/base/default.nix
+{
+  imports = [
+    ../generic  # Import generic modules
+    # ... base modules
+  ];
+}
+```
+
+Generic modules provide:
+- Package installation options (`garden.packages`)
+- Profile system (`garden.profiles`)
+- Basic shared configuration
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Generic modules" href="/reference/modules/generic" icon="gear">
+    The foundation that all other modules build on
+  </Card>
+  <Card title="NixOS modules" href="/reference/modules/nixos" icon="linux">
+    See how NixOS modules build on the base
+  </Card>
+</CardGroup>

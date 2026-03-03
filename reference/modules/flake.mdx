@@ -1,0 +1,185 @@
+---
+title: Flake modules
+description: Build system and development environment configuration for Isabel's Dotfiles
+---
+
+Flake modules provide the foundation for the entire configuration framework. They define build systems, development shells, custom packages, library functions, and automated checks that ensure your NixOS configuration works correctly.
+
+## What flake modules provide
+
+Flake modules operate at the flake level and configure how your entire system is built and tested. Unlike other module categories that configure system or user settings, flake modules define the infrastructure that makes everything else work.
+
+<CardGroup cols={2}>
+  <Card title="Build configuration" icon="hammer">
+    System architecture support, package overlays, and build arguments
+  </Card>
+  <Card title="Development tools" icon="terminal">
+    Dev shells with formatters, linters, and development dependencies
+  </Card>
+  <Card title="Custom packages" icon="box">
+    Framework-specific packages like documentation generators and installers
+  </Card>
+  <Card title="Library functions" icon="book">
+    Helper functions for secrets, hardware detection, and configuration templates
+  </Card>
+</CardGroup>
+
+## Module structure
+
+Flake modules are organized into several subcategories:
+
+<AccordionGroup>
+  <Accordion title="args.nix - Build arguments">
+    Defines the base arguments passed to the flake, including supported systems and nixpkgs configuration.
+
+    ```nix modules/flake/args.nix
+    { inputs, ... }:
+    {
+      # set the output systems for this flake
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+
+      perSystem = { system, ... }: {
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            allowUnsupportedSystem = true;
+          };
+        };
+      };
+    }
+    ```
+
+    This configuration:
+    - Supports x86_64 and ARM Linux systems
+    - Supports Apple Silicon Macs (aarch64-darwin)
+    - Enables unfree packages like proprietary software
+    - Allows building for unsupported systems when needed
+  </Accordion>
+
+  <Accordion title="lib/ - Library functions">
+    Custom library functions that extend NixOS capabilities throughout the framework.
+
+    **Available libraries:**
+    - `helpers.nix` - File import utilities, git URL helpers, SSH key management
+    - `secrets.nix` - Secrets management with sops-nix integration
+    - `services.nix` - Service configuration helpers
+    - `hardware.nix` - Hardware detection and configuration
+    - `validators.nix` - Input validation functions
+    - `template/` - XDG directory templates and configuration scaffolding
+
+    **Example: Git URL aliases**
+    ```nix
+    # From lib/helpers.nix
+    giturl {
+      domain = "github.com";
+      alias = "gh";
+    }
+    # =>
+    # "https://github.com/".insteadOf = "gh:";
+    # "ssh://git@github.com/".pushInsteadOf = "gh:";
+    ```
+
+    **Example: SSH public keys**
+    ```nix
+    mkPubs "github.com" [
+      {
+        type = "ed25519";
+        key = "AAAAC3NzaC1lZDI1NTE5AAAA...";
+      }
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="checks/ - Automated checks">
+    CI/CD checks that validate your configuration before deployment.
+
+    **Available checks:**
+    - `formatting.nix` - Ensures code is properly formatted
+    - `lib.nix` - Tests library functions
+
+    These checks run automatically in CI pipelines to catch errors early.
+  </Accordion>
+
+  <Accordion title="packages/ - Custom packages">
+    Framework-specific packages that extend NixOS functionality.
+
+    **Available packages:**
+    - `docs/` - Documentation generation system (this documentation!)
+    - `iztaller/` - Installation wizard and system bootstrapper
+
+    These packages are built by the flake and made available to your systems.
+  </Accordion>
+
+  <Accordion title="programs/ - Development environment">
+    Programs and tools for the development shell.
+
+    **Available programs:**
+    - `formatter.nix` - Code formatting with nixfmt, keep-sorted, treefmt
+    - `shell.nix` - Development shell with build tools and utilities
+
+    Access these tools by running `nix develop` in your configuration directory.
+  </Accordion>
+</AccordionGroup>
+
+## Usage example
+
+Flake modules are imported automatically when you use the flake. You don't typically interact with them directly unless you're extending the framework.
+
+```nix flake.nix
+{
+  inputs = {
+    garden.url = "github:isabelroses/dotfiles";
+  };
+
+  outputs = { garden, ... }: {
+    # The flake modules are already loaded
+    # They provide lib, packages, checks, etc.
+    nixosConfigurations.myhost = garden.lib.nixosSystem {
+      modules = [ ./configuration.nix ];
+    };
+  };
+}
+```
+
+## Key features
+
+### Multi-architecture support
+
+The flake supports building for multiple architectures out of the box:
+- `x86_64-linux` - Standard Intel/AMD Linux systems
+- `aarch64-linux` - ARM Linux systems (Raspberry Pi, cloud ARM instances)
+- `aarch64-darwin` - Apple Silicon Macs
+
+### Development shell
+
+Enter the development environment to access all build tools:
+
+```bash
+nix develop
+```
+
+This provides:
+- Code formatters (nixfmt, prettier, keep-sorted)
+- Build tools (git, just, direnv)
+- Documentation generators
+- Testing utilities
+
+### Custom library functions
+
+The framework provides dozens of helper functions that simplify common NixOS configuration tasks. These are available throughout your configuration as `lib.garden.*`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="NixOS modules" href="/reference/modules/nixos" icon="linux">
+    System-level configuration for NixOS
+  </Card>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    Shared configuration between NixOS and Darwin
+  </Card>
+</CardGroup>

@@ -1,0 +1,400 @@
+---
+title: Install on WSL
+description: Install Isabel's Dotfiles on Windows Subsystem for Linux with NixOS-WSL
+---
+
+This guide covers installing Isabel's Dotfiles on Windows Subsystem for Linux (WSL) using [NixOS-WSL](https://github.com/nix-community/NixOS-WSL), which provides a NixOS distribution optimized for WSL.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Windows 10 version 2004 or later, or Windows 11
+- WSL 2 installed and enabled
+- At least 10GB of free disk space
+- Administrator access to Windows
+
+<Note>
+The WSL configuration automatically disables features that don't work or aren't needed in WSL, such as the graphical server, systemd services, and firewall.
+</Note>
+
+## Enable WSL
+
+If you haven't already enabled WSL:
+
+<Steps>
+  <Step title="Enable WSL in PowerShell">
+    Open PowerShell as Administrator and run:
+
+    ```powershell
+    wsl --install --no-distribution
+    ```
+
+    This installs WSL 2 without a default distribution.
+  </Step>
+
+  <Step title="Restart your computer">
+    Restart Windows to complete the WSL installation.
+  </Step>
+
+  <Step title="Verify WSL installation">
+    After restarting, open PowerShell and verify:
+
+    ```powershell
+    wsl --version
+    ```
+
+    Ensure you're using WSL 2:
+
+    ```powershell
+    wsl --set-default-version 2
+    ```
+  </Step>
+</Steps>
+
+## Install NixOS on WSL
+
+<Steps>
+  <Step title="Download NixOS-WSL">
+    Download the latest NixOS-WSL tarball from the [NixOS-WSL releases page](https://github.com/nix-community/NixOS-WSL/releases):
+
+    ```powershell
+    # Download to your Downloads folder
+    curl -L -o ~\Downloads\nixos-wsl.tar.gz https://github.com/nix-community/NixOS-WSL/releases/latest/download/nixos-wsl.tar.gz
+    ```
+  </Step>
+
+  <Step title="Import NixOS into WSL">
+    Import the NixOS distribution:
+
+    ```powershell
+    # Create a directory for NixOS
+    mkdir C:\NixOS
+
+    # Import the tarball
+    wsl --import NixOS C:\NixOS ~\Downloads\nixos-wsl.tar.gz
+    ```
+
+    This creates a new WSL distribution called "NixOS".
+  </Step>
+
+  <Step title="Start NixOS">
+    Launch the NixOS distribution:
+
+    ```powershell
+    wsl -d NixOS
+    ```
+
+    You should now be in a NixOS shell.
+  </Step>
+
+  <Step title="Enable experimental features">
+    Inside NixOS, enable flakes:
+
+    ```bash
+    sudo mkdir -p /etc/nix
+    echo "experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf
+    ```
+  </Step>
+</Steps>
+
+## Install the dotfiles
+
+<Steps>
+  <Step title="Clone the repository">
+    Inside your NixOS-WSL instance:
+
+    ```bash
+    # Install git temporarily
+    nix-shell -p git
+
+    # Clone the dotfiles
+    git clone https://github.com/isabelroses/dotfiles.git ~/.config/flake
+    cd ~/.config/flake
+    ```
+  </Step>
+
+  <Step title="Review the WSL configuration">
+    The repository includes a WSL-specific configuration in `modules/wsl/default.nix`:
+
+    ```nix
+    wsl = {
+      enable = true;
+      defaultUser = config.garden.system.mainUser;
+      startMenuLaunchers = true;
+
+      interop = {
+        includePath = false;
+        register = true;
+      };
+    };
+
+    # Disabled features for WSL:
+    services = {
+      xserver.enable = false;      # No graphical server
+      openssh.enable = false;      # SSH handled by Windows
+      resolved.enable = false;     # DNS handled by WSL
+    };
+
+    networking.firewall.enable = false;  # Firewall handled by Windows
+    ```
+  </Step>
+
+  <Step title="Create or customize your host">
+    You can use the existing `valkyrie` configuration or create your own:
+
+    **Option A: Use valkyrie**
+
+    The `valkyrie` host is pre-configured for WSL:
+
+    ```nix
+    garden = {
+      profiles = {
+        workstation.enable = true;
+        headless.enable = true;
+      };
+
+      device = {
+        cpu = null;  # Inherited from Windows
+        gpu = null;
+        keyboard = "us";
+      };
+    };
+    ```
+
+    **Option B: Create custom host**
+
+    ```bash
+    # Copy the valkyrie configuration
+    cp -r systems/valkyrie systems/yourhostname
+
+    # Edit the configuration
+    $EDITOR systems/yourhostname/default.nix
+    ```
+
+    Add your host to `systems/default.nix`:
+
+    ```nix
+    hosts = {
+      # ... existing hosts ...
+      
+      yourhostname = {
+        class = "wsl";
+      };
+    };
+    ```
+  </Step>
+
+  <Step title="Apply the configuration">
+    Build and switch to the configuration:
+
+    ```bash
+    # Using valkyrie
+    sudo nixos-rebuild switch --flake ~/.config/flake#valkyrie
+
+    # Or your custom host
+    sudo nixos-rebuild switch --flake ~/.config/flake#yourhostname
+    ```
+
+    <Note>
+    The first build will take time as it downloads and builds all packages.
+    </Note>
+  </Step>
+
+  <Step title="Set as default user">
+    Exit WSL and set your NixOS user as default in PowerShell:
+
+    ```powershell
+    # Exit WSL first
+    exit
+
+    # Set default user (from Windows)
+    wsl -d NixOS -u yourusername
+    ```
+  </Step>
+</Steps>
+
+## WSL integration features
+
+### Opening Windows applications
+
+The configuration includes `wsl-open` for opening files and URLs in Windows:
+
+```bash
+# Open a URL in Windows browser
+wsl-open https://example.com
+
+# Open a file in Windows default application
+wsl-open document.pdf
+```
+
+This is automatically set as the default `BROWSER` environment variable.
+
+### Start menu launchers
+
+With `startMenuLaunchers = true`, applications installed in NixOS will appear in your Windows Start menu.
+
+### Windows interop
+
+You can run Windows executables from NixOS:
+
+```bash
+# Run Windows commands
+cmd.exe /c dir
+
+# Run PowerShell
+powershell.exe -Command "Get-Process"
+
+# Access Windows drives
+cd /mnt/c/Users/YourName
+```
+
+## Post-installation
+
+### Update the configuration
+
+After making changes to your configuration:
+
+```bash
+cd ~/.config/flake
+sudo nixos-rebuild switch --flake .#yourhostname
+```
+
+### Using justfile commands
+
+The repository includes helpful commands:
+
+```bash
+# List available commands
+just
+
+# Switch configuration
+just switch
+
+# Update flake inputs
+just update
+```
+
+### Set up Windows Terminal integration
+
+Add NixOS to Windows Terminal by editing settings.json:
+
+```json
+{
+  "guid": "{a5a97bd8-961d-5f24-a8bc-914c5f3e8c8a}",
+  "name": "NixOS",
+  "commandline": "wsl.exe -d NixOS",
+  "icon": "https://nixos.org/logo/nixos-logo-only-hires.png",
+  "startingDirectory": "//wsl$/NixOS/home/yourusername"
+}
+```
+
+## Troubleshooting
+
+### WSL won't start
+
+Check WSL status:
+
+```powershell
+# List distributions
+wsl --list --verbose
+
+# Terminate and restart
+wsl --terminate NixOS
+wsl -d NixOS
+```
+
+### "Failed to start unit" errors
+
+Some systemd services don't work in WSL. The configuration disables them automatically:
+
+```nix
+services = {
+  smartd.enable = mkForce false;
+  fail2ban.enable = mkForce false;
+};
+```
+
+### Network issues
+
+WSL networking is managed by Windows. If you have issues:
+
+```powershell
+# Reset WSL networking (from PowerShell as Admin)
+wsl --shutdown
+netsh winsock reset
+netsh int ip reset all
+```
+
+### Access Windows files slowly
+
+Windows files accessed via `/mnt/c` can be slow. Store frequently accessed files in the WSL filesystem:
+
+```bash
+# Fast: WSL filesystem
+~/projects/myproject
+
+# Slow: Windows filesystem
+/mnt/c/Users/YourName/projects/myproject
+```
+
+### Graphics/GUI applications
+
+By default, the WSL configuration disables graphical applications. To enable WSLg (Windows 11):
+
+1. Remove `services.xserver.enable = mkForce false;` from your configuration
+2. Install a graphical application to test
+3. Rebuild the configuration
+
+### Uninstall NixOS-WSL
+
+To completely remove the NixOS distribution:
+
+```powershell
+# Unregister the distribution (this deletes all data!)
+wsl --unregister NixOS
+
+# Remove the directory
+Remove-Item -Recurse -Force C:\NixOS
+```
+
+<Warning>
+This will delete all data in your NixOS-WSL instance. Back up important files first!
+</Warning>
+
+## Performance tips
+
+### Limit memory usage
+
+Create or edit `.wslconfig` in your Windows home directory:
+
+```ini
+[wsl2]
+memory=8GB
+processors=4
+swap=2GB
+```
+
+### Use native filesystem
+
+Store your projects in the WSL filesystem for better performance:
+
+```bash
+# Create projects directory in WSL
+mkdir -p ~/projects
+
+# Clone repositories here instead of /mnt/c
+cd ~/projects
+git clone https://github.com/...
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration guide" icon="gear" href="/configuration/overview">
+    Learn how to customize your setup
+  </Card>
+  <Card title="Modules reference" icon="cube" href="/modules/overview">
+    Explore available modules
+  </Card>
+</CardGroup>

@@ -1,0 +1,85 @@
+---
+title: Isis
+description: UpCloud server hosting tgirl.cloud with Nginx and Uptime Kuma monitoring
+---
+
+Isis is an UpCloud-hosted server that runs the tgirl.cloud domain. It's configured as a headless server with Nginx and Uptime Kuma for service monitoring.
+
+## Overview
+
+<Card title="Server type" icon="cloud">
+  UpCloud VPS running NixOS with headless and server profiles
+</Card>
+
+This system uses the UpCloud profile for cloud-specific optimizations and runs web services along with monitoring capabilities for the tgirl.cloud domain.
+
+## System configuration
+
+Isis is configured with three key profiles:
+
+```nix
+garden = {
+  profiles = {
+    headless.enable = true;
+    server.enable = true;
+    upcloud.enable = true;
+  };
+};
+```
+
+### Profiles
+
+- **headless**: Optimizes the system for server use without a graphical interface
+- **server**: Enables server-specific configurations and hardening
+- **upcloud**: Applies UpCloud-specific settings and integrations
+
+## Services
+
+The system runs two primary services:
+
+### Nginx
+
+```nix
+services = {
+  nginx = {
+    enable = true;
+    domain = "tgirl.cloud";
+  };
+};
+```
+
+Nginx serves as the web server for the tgirl.cloud domain, handling HTTP/HTTPS requests and routing.
+
+### Uptime Kuma
+
+```nix
+services = {
+  uptime-kuma.enable = true;
+};
+```
+
+Uptime Kuma provides real-time monitoring and status tracking for services running on the system. It offers a self-hosted monitoring solution with notifications and uptime tracking.
+
+<Info>
+  Uptime Kuma gives you visibility into service health and availability with a clean web interface.
+</Info>
+
+## Storage configuration
+
+The system uses a straightforward ext4 filesystem configuration:
+
+```nix
+fileSystems."/" = {
+  device = "/dev/disk/by-uuid/71fc32ae-cc42-4020-a9ab-03b2b79d89c5";
+  fsType = "ext4";
+};
+```
+
+<Note>
+  Unlike Hephaestus, this system does not configure a separate swap partition.
+</Note>
+
+## Related systems
+
+- [Hephaestus](/reference/systems/hephaestus) - Sister UpCloud server hosting kittysay.xyz
+- [Valkyrie](/reference/systems/valkyrie) - WSL2 development instance

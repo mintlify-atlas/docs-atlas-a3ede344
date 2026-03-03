@@ -1,0 +1,114 @@
+---
+title: Lilith
+description: NixOS installation ISO image system with custom configurations and tools
+---
+
+Lilith is the ISO image system used to create bootable NixOS installation media. The configuration has been refactored into the iso module for reusability across multiple ISO builds.
+
+## Overview
+
+<Card title="System type" icon="disc">
+  Bootable ISO image for NixOS installation
+</Card>
+
+This system generates custom NixOS installation ISOs with pre-configured tools and settings to streamline the installation process.
+
+<Note>
+  Most of the code has been refactored out into [the iso module](/reference/modules/iso). The lilith directory still exists for specific overrides or additional ISO configurations.
+</Note>
+
+## ISO module architecture
+
+The ISO system is built from multiple modular components:
+
+```nix
+imports = [
+  ./boot.nix        # boot settings
+  ./console.nix     # tty configurations
+  ./fixes.nix       # fixes issues
+  ./image.nix       # the iso image and its configuration
+  ./networking.nix  # all access to the outside
+  ./nix.nix         # nix the package manager configurations
+  ./nixpkgs.nix     # nixpkgs configurations like unfree packages
+  ./programs.nix    # programs needed for NixOS install
+  ./space.nix       # ways to save valuable space on the iso
+];
+```
+
+### Module responsibilities
+
+- **boot.nix**: Configures boot loader settings for the live environment
+- **console.nix**: Sets up TTY and console configurations
+- **fixes.nix**: Applies patches and fixes for known issues
+- **image.nix**: Defines the ISO image structure and contents
+- **networking.nix**: Configures network access and connectivity
+- **nix.nix**: Configures the Nix package manager itself
+- **nixpkgs.nix**: Handles nixpkgs settings like unfree package support
+- **programs.nix**: Includes essential programs for installation
+- **space.nix**: Implements space-saving optimizations
+
+## Image configuration
+
+The ISO uses a consistent naming scheme and compression:
+
+```nix
+# $hostname-$release-$rev-$arch
+name = "${hostname}-${config.system.nixos.release}-${rev}-${pkgs.stdenv.hostPlatform.uname.processor}";
+
+isoImage = {
+  volumeID = mkImageMediaOverride name;
+  
+  # maximum compression, in exchange for build speed
+  squashfsCompression = "zstd -Xcompression-level 19";
+  
+  # remove "-installer" boot menu label
+  appendToMenuLabel = "";
+};
+```
+
+<Info>
+  The ISO uses maximum zstd compression (level 19) to minimize file size, trading build time for smaller downloads.
+</Info>
+
+## ISO contents
+
+The ISO image includes:
+
+### Embedded flake
+
+```nix
+contents = [
+  {
+    # Provides the flake for easy rebuilding without cloning the repo
+    source = cleanSource self;
+    target = "/flake";
+  }
+];
+```
+
+The flake is embedded directly in the ISO at `/flake`, allowing you to rebuild the system without needing to clone the repository first. This speeds up the installation process significantly.
+
+## Default users
+
+<Note>
+  The ISO provides two default users: `nixos` and `root`, both with no passwords. You can set passwords after booting into the live environment.
+</Note>
+
+This follows the standard NixOS installation media conventions for easy access to the live system.
+
+## Building ISOs
+
+You can create custom ISOs by:
+
+1. Adding new configurations to the `systems/lilith/` directory
+2. Using the iso module with custom overrides
+3. Building with `nix build` targeting the ISO output
+
+<Info>
+  The modular design allows you to create multiple ISOs with different configurations while sharing common settings.
+</Info>
+
+## Related systems
+
+- [Valkyrie](/reference/systems/valkyrie) - WSL2 development instance
+- [Hephaestus](/reference/systems/hephaestus) - UpCloud server

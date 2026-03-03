@@ -1,0 +1,163 @@
+---
+title: Valkyrie
+description: WSL2 NixOS instance for Windows development with workstation and headless profiles
+---
+
+Valkyrie is a WSL2 instance running NixOS, configured for development work on Windows systems. It combines workstation capabilities with headless operation for a powerful development environment.
+
+## Overview
+
+<Card title="System type" icon="windows">
+  WSL2 NixOS instance for Windows development
+</Card>
+
+This system provides a full NixOS development environment inside Windows using WSL2, giving you access to Linux tools and workflows without dual-booting.
+
+## System configuration
+
+Valkyrie uses both workstation and headless profiles:
+
+```nix
+garden = {
+  profiles = {
+    workstation.enable = true;
+    headless.enable = true;
+  };
+};
+```
+
+### Profiles
+
+- **workstation**: Enables development tools and user-friendly configurations
+- **headless**: Optimizes for command-line operation without graphical interface
+
+<Info>
+  The combination of workstation and headless profiles gives you development tools without the overhead of a GUI.
+</Info>
+
+## Device configuration
+
+The system is configured specifically for WSL2 constraints:
+
+```nix
+device = {
+  cpu = null;
+  gpu = null;
+  capabilities = {
+    tpm = true;
+    bluetooth = false;
+  };
+  keyboard = "us";
+};
+```
+
+### Device settings
+
+- **cpu/gpu**: Set to `null` since WSL2 virtualizes hardware access
+- **tpm**: Enabled for security features
+- **bluetooth**: Disabled (not applicable in WSL2)
+- **keyboard**: US layout
+
+## Boot configuration
+
+WSL2 requires special boot settings:
+
+```nix
+system = {
+  boot = {
+    loader = "none";
+    secureBoot = false;
+    enableKernelTweaks = true;
+    loadRecommendedModules = true;
+    
+    initrd = {
+      enableTweaks = true;
+      optimizeCompressor = true;
+    };
+  };
+};
+```
+
+### Boot settings
+
+- **loader**: Set to `"none"` since WSL2 doesn't use traditional boot loaders
+- **secureBoot**: Disabled (not applicable in WSL2)
+- **enableKernelTweaks**: Enables performance optimizations
+- **loadRecommendedModules**: Loads modules for better compatibility
+- **initrd tweaks**: Optimizes the initial ramdisk for faster boot times
+
+<Note>
+  WSL2 handles booting differently than traditional Linux systems, so the boot loader is disabled.
+</Note>
+
+## System features
+
+### Emulation
+
+```nix
+system = {
+  emulation.enable = true;
+};
+```
+
+Emulation support is enabled, allowing you to run software compiled for different architectures.
+
+### Bluetooth
+
+```nix
+system = {
+  bluetooth.enable = false;
+};
+```
+
+Bluetooth is explicitly disabled since it's not functional in WSL2 environments.
+
+## User configuration
+
+Valkyrie includes a custom user setup:
+
+```nix
+home-manager.users.isabel = {
+  garden.programs.defaults.shell = "fish";
+  
+  programs = {
+    fish.enable = true;
+  };
+};
+```
+
+The user `isabel` is configured with:
+- Fish shell as the default shell
+- Fish shell program enabled
+
+<Info>
+  Fish provides a user-friendly command-line experience with autosuggestions and syntax highlighting out of the box.
+</Info>
+
+## Use cases
+
+Valkyrie is ideal for:
+
+- **Cross-platform development**: Work with Linux tools on Windows
+- **Testing configurations**: Try out NixOS configurations before deploying to servers
+- **Development workflows**: Use Unix tools and scripting in a Windows environment
+- **Learning NixOS**: Experiment with NixOS without a dedicated machine
+
+## WSL2 integration
+
+The system integrates with Windows through WSL2:
+
+- Access Windows files through `/mnt/c/`
+- Run Linux binaries alongside Windows applications
+- Share network stack with Windows
+- Use Windows terminal emulators to access the instance
+
+<Note>
+  WSL2 provides near-native Linux performance while integrating seamlessly with Windows.
+</Note>
+
+## Related systems
+
+- [Hephaestus](/reference/systems/hephaestus) - UpCloud server hosting kittysay.xyz
+- [Isis](/reference/systems/isis) - UpCloud server hosting tgirl.cloud
+- [Lilith](/reference/systems/lilith) - NixOS installation ISO system

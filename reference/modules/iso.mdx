@@ -1,0 +1,316 @@
+---
+title: ISO modules
+description: Build custom NixOS installation ISOs with optimized settings
+---
+
+ISO modules provide the configuration needed to build bootable NixOS installation media. They create minimal, optimized ISOs that include your dotfiles and installation tools, making system deployment fast and reproducible.
+
+## What ISO modules provide
+
+These modules configure NixOS installation ISOs with sensible defaults for installation environments. They optimize for size, boot speed, and include essential tools while stripping unnecessary components.
+
+<CardGroup cols={2}>
+  <Card title="Optimized boot" icon="rocket">
+    Fast boot with kernel parameters and filesystem support
+  </Card>
+  <Card title="Minimal size" icon="compress">
+    Space-saving configurations to reduce ISO size
+  </Card>
+  <Card title="Installation tools" icon="wrench">
+    nixos-install, nixos-enter, and custom installers
+  </Card>
+  <Card title="Network ready" icon="wifi">
+    SSH and networking configured for headless installs
+  </Card>
+</CardGroup>
+
+## Module breakdown
+
+### image.nix - ISO image configuration
+
+Configures the ISO image format, compression, and contents.
+
+<Accordion title="Configuration details">
+  Creates consistently named ISOs with the format: `hostname-release-rev-arch.iso`
+
+  ```nix modules/iso/image.nix
+  {
+    image = {
+      baseName = "nixos-24.05-a1b2c3d-x86_64";
+      extension = "iso";
+    };
+
+    isoImage = {
+      # Maximum compression for smaller file size
+      squashfsCompression = "zstd -Xcompression-level 19";
+      
+      # Include the flake source in /flake
+      contents = [
+        {
+          source = cleanSource self;
+          target = "/flake";
+        }
+      ];
+    };
+  }
+  ```
+
+  **Key features:**
+  - Maximum zstd compression (level 19)
+  - Includes flake source at `/flake` for offline installation
+  - Automatic naming based on hostname, release, and git revision
+  - No "-installer" suffix in boot menu labels
+</Accordion>
+
+### boot.nix - Boot configuration
+
+Configures kernel parameters and boot settings for the live environment.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/boot.nix
+  {
+    boot = {
+      kernelParams = [
+        "noquiet"  # Show boot messages
+        "toram"    # Load entire ISO to RAM
+      ];
+
+      # Disable systemd-boot (not needed for ISO)
+      loader.systemd-boot.enable = false;
+      
+      # Disable RAID tools
+      swraid.enable = false;
+
+      # Essential filesystem support only
+      supportedFilesystems = [
+        "btrfs"
+        "vfat"
+        "f2fs"
+        "xfs"
+        "ntfs"
+        "cifs"
+      ];
+    };
+  }
+  ```
+
+  The `toram` parameter loads the entire ISO into memory, allowing you to remove the USB drive after boot.
+</Accordion>
+
+### nix.nix - Nix package manager settings
+
+Configures Nix for the installation environment with optimal settings.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/nix.nix
+  {
+    nix = {
+      # Use Lix instead of standard Nix
+      package = pkgs.lixPackageSets.git.lix;
+
+      # Disable channels (flake-based)
+      channel.enable = false;
+
+      settings = {
+        experimental-features = [ "flakes" "nix-command" ];
+        
+        # More verbose logging during install
+        log-lines = 50;
+        warn-dirty = false;
+        
+        # Better network performance
+        http-connections = 50;
+        
+        # Don't fetch flake registry
+        flake-registry = "";
+        accept-flake-config = false;
+        
+        # Binary caches
+        substituters = [
+          "https://nix-community.cachix.org"
+          "https://cache.tgirl.cloud/tgirlcloud"
+          "https://catppuccin.cachix.org"
+        ];
+      };
+    };
+  }
+  ```
+
+  Configures trusted binary caches to speed up installation by downloading pre-built packages.
+</Accordion>
+
+### programs.nix - Installation programs
+
+Includes only essential installation tools.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/programs.nix
+  {
+    # Disable all default installer tools
+    system.disableInstallerTools = true;
+
+    # Enable only what we need
+    system.tools = {
+      nixos-enter.enable = true;
+      nixos-install.enable = true;
+      nixos-generate-config.enable = true;
+    };
+
+    # Minimal git for cloning repos
+    programs.git.package = pkgs.gitMinimal;
+
+    # Custom installer package
+    environment.systemPackages = [ self'.packages.iztaller ];
+  }
+  ```
+
+  This configuration keeps the ISO size down by only including necessary installation utilities.
+</Accordion>
+
+### networking.nix - Network access
+
+Enables SSH for headless installations.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/networking.nix
+  {
+    # Start SSH on boot
+    systemd.services.sshd.wantedBy = [ "multi-user.target" ];
+    
+    # Allow SSH key authentication for root
+    users.users.root.openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMQDiHbMSinj8twL9cTgPOfI6OMexrTZyHX27T8gnMj2"
+    ];
+  }
+  ```
+
+  This allows you to SSH into the live ISO for remote installations.
+</Accordion>
+
+### space.nix - Size optimizations
+
+Reduces ISO size by disabling documentation.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/space.nix
+  {
+    # Disable all documentation
+    documentation = {
+      enable = false;
+      dev.enable = false;
+      doc.enable = false;
+      info.enable = false;
+      nixos.enable = false;
+      
+      man = {
+        enable = false;
+        man-db.enable = false;
+      };
+    };
+
+    # Don't include nixpkgs channel
+    system.installer.channel.enable = false;
+  }
+  ```
+
+  Man pages and documentation aren't needed in a live installation environment, so disabling them significantly reduces the ISO size.
+</Accordion>
+
+### console.nix - TTY configuration
+
+Configures the text console appearance.
+
+<Accordion title="Configuration details">
+  ```nix modules/iso/console.nix
+  {
+    console = {
+      font = "${pkgs.terminus_font}/share/consolefonts/ter-d18n.psf.gz";
+      keyMap = "en";
+    };
+  }
+  ```
+
+  Uses the Terminus font for better readability in the terminal.
+</Accordion>
+
+### Other modules
+
+<AccordionGroup>
+  <Accordion title="fixes.nix - System fixes">
+    Contains workarounds for common issues in the ISO environment.
+  </Accordion>
+
+  <Accordion title="nixpkgs.nix - Nixpkgs settings">
+    Nixpkgs-specific configuration like allowing unfree packages.
+  </Accordion>
+</AccordionGroup>
+
+## Usage example
+
+The **lilith** system uses the ISO module to build installation media:
+
+```nix systems/default.nix
+{
+  easy-hosts.hosts = {
+    lilith = {
+      class = "iso";
+    };
+  };
+}
+```
+
+The `class = "iso"` setting automatically imports all ISO modules through the class module system, which loads `modules/iso/default.nix`.
+
+## Building an ISO
+
+Build the lilith ISO with:
+
+```bash
+nix build .#nixosConfigurations.lilith.config.system.build.isoImage
+```
+
+The resulting ISO will be in `result/iso/` with a name like:
+```
+lilith-24.05-a1b2c3d-x86_64.iso
+```
+
+## Key features
+
+### Embedded flake source
+
+The ISO includes the complete flake source at `/flake`, so you can install without internet access or cloning the repository:
+
+```bash
+nixos-install --flake /flake#hostname
+```
+
+### Minimal footprint
+
+Aggressive optimization keeps ISO size small:
+- No documentation or man pages
+- Minimal package set
+- Maximum compression
+- No nixpkgs channel
+
+### Live environment defaults
+
+The NixOS ISO profile provides two users by default:
+- `nixos` - No password
+- `root` - No password
+
+You can log in immediately and change passwords as needed.
+
+### Headless installation support
+
+SSH is enabled by default with authorized keys for root, allowing remote installations without physical access to the machine.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="NixOS modules" href="/reference/modules/nixos" icon="linux">
+    System configuration for installed systems
+  </Card>
+  <Card title="Base modules" href="/reference/modules/base" icon="layer-group">
+    Shared configuration across platforms
+  </Card>
+</CardGroup>

@@ -1,0 +1,275 @@
+---
+title: WSL modules
+description: Run NixOS on Windows using WSL2 integration
+---
+
+WSL modules configure NixOS to run on Windows Subsystem for Linux 2 (WSL2). They integrate with the Windows host system while disabling services that don't make sense in a WSL environment.
+
+## What WSL modules provide
+
+The WSL module adapts your NixOS configuration to work seamlessly in WSL2, handling Windows interop, disabling incompatible services, and configuring the environment for the best WSL experience.
+
+<CardGroup cols={2}>
+  <Card title="Windows interop" icon="windows">
+    Open Windows programs and files from WSL
+  </Card>
+  <Card title="Smart defaults" icon="toggle-on">
+    Disables services that don't work in WSL
+  </Card>
+  <Card title="Start menu integration" icon="bars">
+    Launch WSL from Windows Start menu
+  </Card>
+  <Card title="Network sharing" icon="network-wired">
+    Uses Windows networking stack
+  </Card>
+</CardGroup>
+
+## Module configuration
+
+The WSL module is implemented in a single file that configures all WSL-specific settings.
+
+### Core WSL settings
+
+<Accordion title="WSL integration">
+  ```nix modules/wsl/default.nix
+  {
+    imports = [
+      inputs.nixos-wsl.nixosModules.wsl
+      ../nixos
+    ];
+
+    wsl = {
+      enable = true;
+      defaultUser = config.garden.system.mainUser;
+      startMenuLaunchers = true;
+
+      interop = {
+        includePath = false;
+        register = true;
+      };
+    };
+  }
+  ```
+
+  **Key settings:**
+  - `enable = true` - Activates WSL2 integration
+  - `defaultUser` - Uses your main user from garden config
+  - `startMenuLaunchers = true` - Adds WSL to Windows Start menu
+  - `interop.register = true` - Enables running Windows executables
+  - `interop.includePath = false` - Doesn't pollute PATH with Windows binaries
+</Accordion>
+
+### Disabled services
+
+<Accordion title="Services that don't work in WSL">
+  ```nix modules/wsl/default.nix
+  {
+    services = {
+      smartd.enable = false;      # No disk monitoring
+      xserver.enable = false;     # No X11 server
+      openssh.enable = false;     # Use Windows SSH
+      fail2ban.enable = false;    # No firewall needed
+      resolved.enable = false;    # Windows manages DNS
+    };
+
+    networking = {
+      tcpcrypt.enable = false;    # Not supported
+      firewall.enable = false;    # Windows firewall handles this
+    };
+
+    security.apparmor.enable = false;  # Not supported in WSL
+  }
+  ```
+
+  These services are disabled because:
+  - WSL2 uses the Windows network stack
+  - No direct hardware access for disk monitoring
+  - Windows handles DNS resolution and firewall rules
+  - Security features like AppArmor don't work in containers
+</Accordion>
+
+### Windows integration
+
+<Accordion title="Opening files in Windows">
+  ```nix modules/wsl/default.nix
+  {
+    # Use wsl-open to open files in Windows applications
+    environment.variables.BROWSER = "wsl-open";
+    
+    garden.packages = {
+      inherit (pkgs) wsl-open;
+    };
+  }
+  ```
+
+  This allows you to open URLs and files in Windows applications from WSL:
+  
+  ```bash
+  # Opens in Windows default browser
+  $BROWSER https://example.com
+  
+  # Opens file in Windows default application
+  wsl-open document.pdf
+  ```
+</Accordion>
+
+### Other settings
+
+<Accordion title="Theme and appearance">
+  ```nix modules/wsl/default.nix
+  {
+    # Disable Catppuccin theme in WSL
+    catppuccin.enable = false;
+  }
+  ```
+
+  Theming is disabled since WSL terminals often use the Windows terminal theme.
+</Accordion>
+
+## Usage example
+
+The **valkyrie** system uses the WSL module:
+
+```nix systems/default.nix
+{
+  easy-hosts.hosts = {
+    valkyrie = {
+      class = "wsl";
+    };
+  };
+}
+```
+
+The `class = "wsl"` setting automatically imports the WSL module through the class module system, which loads `modules/wsl/default.nix`.
+
+## Setting up WSL
+
+### Prerequisites
+
+You need Windows 10 version 2004+ or Windows 11 with WSL2 installed:
+
+```powershell
+wsl --install
+```
+
+### Installing NixOS on WSL
+
+1. Build the WSL system configuration:
+   ```bash
+   nix build .#nixosConfigurations.valkyrie.config.system.build.toplevel
+   ```
+
+2. Import into WSL using nixos-wsl's import script (see [NixOS-WSL documentation](https://github.com/nix-community/NixOS-WSL))
+
+3. Launch your NixOS WSL instance:
+   ```powershell
+   wsl -d NixOS
+   ```
+
+### Rebuilding your system
+
+After making configuration changes:
+
+```bash
+sudo nixos-rebuild switch --flake .#valkyrie
+```
+
+## Key features
+
+### Automatic service disabling
+
+The module automatically disables services that:
+- Require direct hardware access
+- Conflict with Windows services
+- Don't make sense in a container environment
+
+You don't need to manually disable each incompatible service.
+
+### Windows interoperability
+
+With `wsl-open`, you can seamlessly open files and URLs in Windows applications while working in the Linux environment.
+
+### Consistent with NixOS
+
+The WSL module imports your regular NixOS modules, so you get the same configuration as your other systems with only WSL-specific overrides.
+
+### Network transparency
+
+WSL2 shares networking with Windows, so:
+- Services in WSL are accessible from Windows via `localhost`
+- Windows firewall controls all network access
+- DNS resolution works through Windows
+
+## Differences from standard NixOS
+
+WSL has limitations compared to bare-metal NixOS:
+
+<AccordionGroup>
+  <Accordion title="No systemd-boot or GRUB">
+    WSL doesn't boot like a regular system. The Windows kernel loads WSL2 instances, so bootloader configuration is irrelevant.
+  </Accordion>
+
+  <Accordion title="No direct hardware access">
+    WSL2 runs in a lightweight VM, so direct hardware access (GPU pass-through aside) isn't available. Services like smartd that monitor disks won't work.
+  </Accordion>
+
+  <Accordion title="No firewall control">
+    The Windows firewall controls network access. WSL networking is bridged through Windows.
+  </Accordion>
+
+  <Accordion title="No systemd-resolved">
+    DNS resolution is handled by Windows, not systemd-resolved.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced configuration
+
+### GPU acceleration
+
+WSL2 supports GPU acceleration for machine learning and graphics:
+
+```nix
+{
+  # Add GPU drivers if needed
+  garden.device.gpu = "nvidia";
+}
+```
+
+### Custom default user
+
+The WSL module uses `config.garden.system.mainUser`, which you set in your system configuration:
+
+```nix systems/valkyrie/users.nix
+{
+  garden.system.mainUser = "isabel";
+  
+  garden.users.isabel = {
+    enable = true;
+    isAdmin = true;
+  };
+}
+```
+
+### File system access
+
+Access Windows files at `/mnt/c/` and other drives:
+
+```bash
+cd /mnt/c/Users/YourName/Documents
+```
+
+Your WSL home directory is also accessible from Windows at:
+```
+\\wsl$\NixOS\home\username
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="NixOS modules" href="/reference/modules/nixos" icon="linux">
+    Full NixOS system configuration
+  </Card>
+  <Card title="Home Manager modules" href="/reference/modules/home" icon="home">
+    Per-user configuration that works in WSL
+  </Card>
+</CardGroup>

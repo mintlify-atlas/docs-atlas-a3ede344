@@ -81,7 +81,9 @@
               "reference/modules/darwin",
               "reference/modules/home",
               "reference/modules/base",
-              "reference/modules/generic"
+              "reference/modules/generic",
+              "reference/modules/iso",
+              "reference/modules/wsl"
             ]
           },
           {
@@ -90,9 +92,13 @@
               "reference/systems/amaterasu",
               "reference/systems/aphrodite",
               "reference/systems/athena",
+              "reference/systems/hephaestus",
+              "reference/systems/isis",
+              "reference/systems/lilith",
               "reference/systems/minerva",
               "reference/systems/skadi",
-              "reference/systems/tatsumaki"
+              "reference/systems/tatsumaki",
+              "reference/systems/valkyrie"
             ]
           },
           {

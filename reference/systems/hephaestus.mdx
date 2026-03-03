@@ -1,0 +1,89 @@
+---
+title: Hephaestus
+description: UpCloud server hosting kittysay.xyz with Nginx and Piper services
+---
+
+Hephaestus is an UpCloud-hosted server that runs the kittysay.xyz domain. It's configured as a headless server with Nginx and Piper services.
+
+## Overview
+
+<Card title="Server type" icon="cloud">
+  UpCloud VPS running NixOS with headless and server profiles
+</Card>
+
+This system uses the UpCloud profile for cloud-specific optimizations and runs essential web services for the kittysay.xyz domain.
+
+## System configuration
+
+Hephaestus is configured with three key profiles:
+
+```nix
+garden = {
+  profiles = {
+    headless.enable = true;
+    server.enable = true;
+    upcloud.enable = true;
+  };
+};
+```
+
+### Profiles
+
+- **headless**: Optimizes the system for server use without a graphical interface
+- **server**: Enables server-specific configurations and hardening
+- **upcloud**: Applies UpCloud-specific settings and integrations
+
+## Services
+
+The system runs two primary services:
+
+### Nginx
+
+```nix
+services = {
+  nginx = {
+    enable = true;
+    domain = "kittysay.xyz";
+  };
+};
+```
+
+Nginx serves as the web server for the kittysay.xyz domain, handling HTTP/HTTPS requests and routing.
+
+### Piper
+
+```nix
+services = {
+  piper.enable = true;
+};
+```
+
+Piper provides additional service functionality for the system.
+
+<Note>
+  The system uses UpCloud's infrastructure for hosting, which provides reliable cloud VPS services.
+</Note>
+
+## Storage configuration
+
+The system uses a simple ext4 filesystem configuration:
+
+```nix
+fileSystems."/" = {
+  device = "/dev/disk/by-uuid/4d503c5f-c51a-4eca-993c-5beb9b85b963";
+  fsType = "ext4";
+};
+
+swapDevices = [
+  { device = "/dev/disk/by-uuid/9455e246-4f8f-42cb-beb8-d1a071a1b5e0"; }
+];
+```
+
+<Info>
+  The system includes a dedicated swap partition for memory management.
+</Info>
+
+## Related systems
+
+- [Isis](/reference/systems/isis) - Sister UpCloud server hosting tgirl.cloud
+- [Valkyrie](/reference/systems/valkyrie) - WSL2 development instance

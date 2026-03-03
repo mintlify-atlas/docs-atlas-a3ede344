@@ -1,0 +1,123 @@
+{
+  "projectType": "framework",
+  "projectName": "Isabel's Dotfiles",
+  "projectDescription": "A comprehensive, modular NixOS configuration framework with support for multiple platforms and Catppuccin theming",
+  "theme": "aspen",
+  "primaryColor": "#f5c2e7",
+  "lightColor": "#a6e3a1",
+  "darkColor": "#fab387",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/modules",
+              "architecture/systems"
+            ]
+          },
+          {
+            "group": "Installation",
+            "pages": [
+              "installation/nixos",
+              "installation/macos",
+              "installation/wsl",
+              "installation/dual-boot"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/making-it-your-own",
+              "guides/adding-systems",
+              "guides/adding-users",
+              "guides/adding-packages",
+              "guides/secrets-management",
+              "guides/templates",
+              "guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/window-manager",
+              "configuration/lix",
+              "configuration/catppuccin",
+              "configuration/home-manager"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Modules",
+            "pages": [
+              "reference/modules/flake",
+              "reference/modules/nixos",
+              "reference/modules/darwin",
+              "reference/modules/home",
+              "reference/modules/base",
+              "reference/modules/generic"
+            ]
+          },
+          {
+            "group": "Systems",
+            "pages": [
+              "reference/systems/amaterasu",
+              "reference/systems/aphrodite",
+              "reference/systems/athena",
+              "reference/systems/minerva",
+              "reference/systems/skadi",
+              "reference/systems/tatsumaki"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "reference/justfile-commands",
+              "reference/uninstalling",
+              "reference/mirrors"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Modular NixOS configuration supporting multiple platforms (NixOS, macOS, WSL)",
+    "Catppuccin theming across all applications and system components",
+    "Declarative secrets management with sops-nix",
+    "Multi-host support with easy host management via easy-hosts",
+    "Home-manager integration for userspace configuration",
+    "Secure boot support with lanzaboote",
+    "Custom ISO image builder for system installation",
+    "Justfile-based build and deployment automation"
+  ],
+  "publicApiSurface": [
+    "modules.flake - Flake output builders",
+    "modules.nixos - NixOS system modules",
+    "modules.darwin - macOS system modules",
+    "modules.home - Home-manager modules",
+    "modules.base - Cross-platform base modules",
+    "modules.generic - Universal modules",
+    "modules.iso - ISO image configuration",
+    "modules.wsl - WSL-specific modules",
+    "just boot - Build boot configuration",
+    "just switch - Switch to new configuration",
+    "just deploy - Deploy to remote host",
+    "just iso - Build ISO image",
+    "just check - Validate flake"
+  ]
+}
